@@ -2,7 +2,10 @@ import { ethers } from "hardhat";
 
 async function main() {
   console.log("🚀 Deploying SCAI Token...");
-
+  // deployment address 0x290483A8fC8ed76647dA75260eb2a2594B5330a2
+  // rpc url https://mainnet-rpc.scai.network
+  // chain id 34(0x22)
+  // explorer url https://explorer.securechain.ai
   // Get deployer account
   const [deployer] = await ethers.getSigners();
   console.log("📍 Deploying from:", deployer.address);
