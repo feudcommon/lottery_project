@@ -23,7 +23,6 @@ export const useAuth = () => {
         console.warn('Telegram WebApp not available - running in browser mode');
         // Provide mock data or redirect to Telegram
       }
-    }
 
       const telegramData = tg.initData;
       if (!telegramData) {
