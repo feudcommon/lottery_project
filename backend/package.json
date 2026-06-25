@@ -1,0 +1,30 @@
+{
+  "name": "scai-lucky-loop-backend",
+  "version": "1.0.0",
+  "description": "Backend for SCAI Lucky Loop - Telegram lottery + Web3 reward platform",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "init-db": "node src/db/init.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "better-sqlite3": "^11.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.23.8",
+    "node-cron": "^3.0.3",
+    "express-rate-limit": "^7.4.0",
+    "dotenv": "^16.4.5",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,101 @@
+### SCAI Lucky Loop — Manual API Test Requests
+### Use with the VS Code "REST Client" extension, or copy each block's
+### curl-equivalent (shown in comments) into a terminal.
+###
+### IMPORTANT: Telegram login requires a real signed initData string from
+### an actual Telegram Mini App session — you cannot fake this without the
+### real bot token and a real Telegram client. For local testing without
+### Telegram, see the "TESTING WITHOUT TELEGRAM" note at the bottom.
+
+@baseUrl = http://localhost:3000
+
+### 1. Health check
+GET {{baseUrl}}/health
+
+### 2. Telegram login (replace initData with a real value from your bot)
+# curl -X POST http://localhost:3000/api/auth/telegram -H "Content-Type: application/json" -d '{"initData":"..."}'
+POST {{baseUrl}}/api/auth/telegram
+Content-Type: application/json
+
+{
+  "initData": "auth_date=1750000000&user=%7B%22id%22%3A123456789%2C%22username%22%3A%22testuser%22%7D&hash=PASTE_REAL_HASH_HERE"
+}
+
+### 3. Get my profile (replace TOKEN with the token from step 2's response)
+GET {{baseUrl}}/api/user/me
+Authorization: Bearer TOKEN
+
+### 4. Get my coin balance (note: :id must match YOUR OWN user id, returned in step 3)
+GET {{baseUrl}}/api/user/1/coins
+Authorization: Bearer TOKEN
+
+### 5. Spin for free coins
+POST {{baseUrl}}/api/spin
+Authorization: Bearer TOKEN
+
+### 6. Check today's ticket availability
+GET {{baseUrl}}/api/tickets/today
+Authorization: Bearer TOKEN
+
+### 7. Buy a ticket (only works between SALES_OPEN_HOUR and SALES_CLOSE_HOUR)
+POST {{baseUrl}}/api/buy-ticket
+Authorization: Bearer TOKEN
+Content-Type: application/json
+
+{}
+
+### 8. Check withdrawal eligibility
+GET {{baseUrl}}/api/withdraw/eligibility
+Authorization: Bearer TOKEN
+
+### 9. Request a withdrawal (requires 1000+ coins and 5+ active referrals)
+POST {{baseUrl}}/api/withdraw
+Authorization: Bearer TOKEN
+Content-Type: application/json
+
+{
+  "walletAddress": "0x000000000000000000000000000000000000aa",
+  "amountCoins": 1000
+}
+
+### 10. View a draw's public result
+GET {{baseUrl}}/api/draws/2026-06-18
+
+### 11. Verify a completed draw was fair (after it's run)
+GET {{baseUrl}}/api/draws/2026-06-18/verify
+
+### ---- ADMIN ENDPOINTS (your telegram_id must be in ADMIN_TELEGRAM_IDS) ----
+
+### 12. List all users
+GET {{baseUrl}}/api/admin/users
+Authorization: Bearer ADMIN_TOKEN
+
+### 13. View ticket sales for a date
+GET {{baseUrl}}/api/admin/tickets/2026-06-18
+Authorization: Bearer ADMIN_TOKEN
+
+### 14. List pending withdrawals
+GET {{baseUrl}}/api/admin/withdrawals/pending
+Authorization: Bearer ADMIN_TOKEN
+
+### 15. Force-run today's draw (manual override / testing)
+POST {{baseUrl}}/api/admin/draw/2026-06-18/run
+Authorization: Bearer ADMIN_TOKEN
+
+###############################################################################
+# TESTING WITHOUT A REAL TELEGRAM BOT
+#
+# Since step 2 needs a genuinely signed Telegram payload, the fastest way to
+# test everything else locally is to temporarily bypass verification:
+#
+# 1. Open src/controllers/authController.js
+# 2. Comment out the verification block and hardcode a fake telegramId, e.g.:
+#
+#      const verification = { valid: true, data: { telegramId: "999000111", username: "dev_test" } };
+#      // const verification = verifyTelegramWebAppData(initData);
+#      // if (!verification.valid) { throw new AppError(...) }
+#
+# 3. Now POST any body to /api/auth/telegram and you'll get back a real JWT.
+# 4. REMOVE THIS BYPASS BEFORE DEPLOYING — it would let anyone log in as
+#    any user with zero verification. This is for local dev only.
+###############################################################################
