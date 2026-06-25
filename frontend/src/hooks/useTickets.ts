@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import api from '../api/client.ts';
-import { useUserStore } from '../store/userStore.ts';
+import api from '../api/client';
+import { useUserStore } from '../store/userStore';
 
 export const useTickets = () => {
   const [isLoading, setIsLoading] = useState(false);

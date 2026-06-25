@@ -1,6 +1,6 @@
 // src/pages/Draws.tsx
 import { useEffect, useState } from 'react';
-import api from '../api/client.ts';
+import api from '../api/client';
 
 /**
  * Draws Page
@@ -28,7 +28,7 @@ export default function Draws() {
     setVerifyLoading(true);
     try {
       const response = await api.get(`/api/draws/${date}/verify`);
-      alert(response.data.verified ? '✅ Draw is fair!' : '❌ Draw verification failed');
+      alert(response.data.verified ? 'Ã¢Å“â€¦ Draw is fair!' : 'Ã¢ÂÅ’ Draw verification failed');
     } catch (error) {
       console.error('Verification failed:', error);
     } finally {
@@ -38,14 +38,14 @@ export default function Draws() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">📊 Draw Results</h1>
+      <h1 className="text-2xl font-bold mb-4">Ã°Å¸â€œÅ  Draw Results</h1>
 
       {selectedDraw && (
         <div className="bg-white rounded-lg shadow p-4 mb-4">
           <h2 className="text-lg font-bold mb-2">{selectedDraw.date}</h2>
 
           {selectedDraw.status === 'pending' ? (
-            <p className="text-yellow-600 font-bold">⏳ Draw pending (18:00)</p>
+            <p className="text-yellow-600 font-bold">Ã¢ÂÂ³ Draw pending (18:00)</p>
           ) : selectedDraw.status === 'completed' ? (
             <>
               <p className="mb-2">
@@ -57,7 +57,7 @@ export default function Draws() {
                 disabled={verifyLoading}
                 className="w-full bg-blue-500 text-white py-2 rounded font-bold hover:bg-blue-600 transition disabled:opacity-50"
               >
-                {verifyLoading ? 'Verifying...' : '🔍 Verify Draw'}
+                {verifyLoading ? 'Verifying...' : 'Ã°Å¸â€Â Verify Draw'}
               </button>
 
               {selectedDraw.revealed && (

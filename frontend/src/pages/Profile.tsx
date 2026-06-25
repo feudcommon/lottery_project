@@ -1,7 +1,7 @@
 // src/pages/Profile.tsx
-import { useUserStore } from '../store/userStore.ts';
+import { useUserStore } from '../store/userStore';
 import { useEffect, useState } from 'react';
-import api from '../api/client.ts';
+import api from '../api/client';
 
 /**
  * Profile Page
@@ -33,7 +33,7 @@ export default function Profile() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">👤 Profile</h1>
+      <h1 className="text-2xl font-bold mb-4">Ã°Å¸â€˜Â¤ Profile</h1>
 
       {user && (
         <div className="space-y-4">
@@ -54,7 +54,7 @@ export default function Profile() {
               onClick={copyToClipboard}
               className="w-full bg-green-500 text-white font-bold py-2 rounded hover:bg-green-600 transition"
             >
-              📋 Copy Referral Link
+              Ã°Å¸â€œâ€¹ Copy Referral Link
             </button>
             <p className="text-xs text-gray-500 mt-2 break-all">{referralLink}</p>
           </div>
@@ -77,7 +77,7 @@ export default function Profile() {
             }}
             className="w-full bg-red-500 text-white font-bold py-2 rounded hover:bg-red-600 transition"
           >
-            🚪 Logout
+            Ã°Å¸Å¡Âª Logout
           </button>
         </div>
       )}

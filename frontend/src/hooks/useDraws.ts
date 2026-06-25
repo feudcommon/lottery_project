@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../api/client.ts';
+import api from '../api/client';
 
 interface Draw {
   date: string;

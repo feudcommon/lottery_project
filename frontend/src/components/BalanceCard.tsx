@@ -13,7 +13,7 @@ export default function BalanceCard({ coins, isLoading }: { coins: number; isLoa
       ) : (
         <p className="text-4xl font-bold mt-2">{coins}</p>
       )}
-      <p className="text-xs opacity-75 mt-2">💰 SCAI coins</p>
+      <p className="text-xs opacity-75 mt-2">Ã°Å¸â€™Â° SCAI coins</p>
     </div>
   );
 }

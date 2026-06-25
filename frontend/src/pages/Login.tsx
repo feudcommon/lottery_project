@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth.ts';
-import { useUserStore } from '../store/userStore.ts';
+import { useAuth } from '../hooks/useAuth';
+import { useUserStore } from '../store/userStore';
 
 export default function Login() {
   const { token } = useUserStore();
@@ -51,7 +51,7 @@ export default function Login() {
       {/* Top left accent */}
       <div style={{ position:'absolute',top:'2.5rem',left:'2.5rem',width:2,height:60,background:'linear-gradient(to bottom, #e879f9, transparent)' }} />
       <div style={{ position:'absolute',top:'2.5rem',left:'calc(2.5rem + 16px)',fontSize:10,letterSpacing:'0.18em',textTransform:'uppercase',color:'rgba(255,255,255,0.3)' }}>
-        SCAI Network · 2026
+        SCAI Network Ã‚Â· 2026
       </div>
 
       {/* Top right tag */}
@@ -79,7 +79,7 @@ export default function Login() {
         </div>
 
         <div style={{ fontSize:13,color:'rgba(255,255,255,0.3)',letterSpacing:'0.05em',marginBottom:'1.5rem' }}>
-          Verified randomness · Real rewards · Every day
+          Verified randomness Ã‚Â· Real rewards Ã‚Â· Every day
         </div>
 
         {/* Audit badge */}
@@ -89,7 +89,7 @@ export default function Login() {
           borderRadius:100,padding:'5px 12px 5px 6px',
         }}>
           <div style={{ width:20,height:20,borderRadius:'50%',background:'linear-gradient(135deg,#059669,#34d399)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,flexShrink:0 }}>
-            ✓
+            Ã¢Å“â€œ
           </div>
           <div style={{ display:'flex',flexDirection:'column',gap:1 }}>
             <div style={{ fontSize:9,color:'rgba(255,255,255,0.3)',letterSpacing:'0.08em',textTransform:'uppercase',lineHeight:1 }}>
@@ -121,7 +121,7 @@ export default function Login() {
             boxShadow:'0 0 30px rgba(192,38,211,0.35)',
             marginBottom:'1.75rem',opacity: isLoading ? 0.5 : 1,
           }}>
-          ✈️ {isLoading ? 'Connecting...' : 'Connect with Telegram'}
+          Ã¢Å“Ë†Ã¯Â¸Â {isLoading ? 'Connecting...' : 'Connect with Telegram'}
         </button>
 
         {/* Bottom row */}
@@ -132,7 +132,7 @@ export default function Login() {
             {[
               { num: '1', label: 'Free coin daily' },
               { num: '10', label: 'Coins per ticket' },
-              { num: '∞', label: 'Withdrawals' },
+              { num: 'Ã¢Ë†Å¾', label: 'Withdrawals' },
             ].map((s, i) => (
               <div key={i}>
                 <div style={{ fontSize:18,fontWeight:700,color:'#fff',lineHeight:1 }}>{s.num}</div>
@@ -143,7 +143,7 @@ export default function Login() {
 
           {/* Pills */}
           <div style={{ display:'flex',flexDirection:'column',gap:6,alignItems:'flex-end',flexShrink:0 }}>
-            {['🎲 On-chain verified draw','🪙 Earn daily coins','💸 Withdraw anytime'].map((p, i) => (
+            {['Ã°Å¸Å½Â² On-chain verified draw','Ã°Å¸Âªâ„¢ Earn daily coins','Ã°Å¸â€™Â¸ Withdraw anytime'].map((p, i) => (
               <div key={i} style={{ fontSize:10,color:'rgba(255,255,255,0.4)',border:'1px solid rgba(255,255,255,0.08)',padding:'4px 12px',borderRadius:100,whiteSpace:'nowrap',letterSpacing:'0.05em' }}>
                 {p}
               </div>

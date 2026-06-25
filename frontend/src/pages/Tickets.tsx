@@ -1,8 +1,8 @@
 // src/pages/Tickets.tsx
 import { useEffect, useState } from 'react';
-import { useBalance } from '../hooks/useBalance.ts';
-import { useTickets } from '../hooks/useTickets.ts';
-import api from '../api/client.ts';
+import { useBalance } from '../hooks/useBalance';
+import { useTickets } from '../hooks/useTickets';
+import api from '../api/client';
 
 /**
  * Tickets Page
@@ -47,7 +47,7 @@ export default function Tickets() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">🎫 Today's Lottery</h1>
+      <h1 className="text-2xl font-bold mb-4">Ã°Å¸Å½Â« Today's Lottery</h1>
 
       <div className="bg-white rounded-lg shadow p-4 mb-4">
         <p className="text-gray-600 mb-2">Your coins: <span className="font-bold text-lg">{coins}</span></p>

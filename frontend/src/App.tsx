@@ -1,7 +1,7 @@
 import React from 'react';
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useUserStore } from './store/userStore.ts';
+import { useUserStore } from './store/userStore';
 import Login from './pages/Login.tsx';
 import Home from './pages/Home.tsx';
 import Tickets from './pages/Tickets.tsx';

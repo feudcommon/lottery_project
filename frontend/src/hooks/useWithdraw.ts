@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '../api/client.ts';
+import api from '../api/client';
 
 export const useWithdraw = () => {
   const [isLoading, setIsLoading] = useState(false);

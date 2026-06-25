@@ -1,8 +1,8 @@
 // src/pages/Withdraw.tsx
 import { useEffect, useState } from 'react';
-import { useBalance } from '../hooks/useBalance.ts';
-import { useWithdraw } from '../hooks/useWithdraw.ts';
-import api from '../api/client.ts';
+import { useBalance } from '../hooks/useBalance';
+import { useWithdraw } from '../hooks/useWithdraw';
+import api from '../api/client';
 
 /**
  * Withdrawal Page
@@ -15,7 +15,7 @@ import api from '../api/client.ts';
  * 1. User enters wallet address + amount
  * 2. Clicks "Request Withdrawal"
  * 3. Backend creates withdrawal record (pending)
- * 4. Admin approves → tokens sent to blockchain
+ * 4. Admin approves Ã¢â€ â€™ tokens sent to blockchain
  */
 
 export default function Withdraw() {
@@ -52,17 +52,17 @@ export default function Withdraw() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">💸 Withdraw SCAI</h1>
+      <h1 className="text-2xl font-bold mb-4">Ã°Å¸â€™Â¸ Withdraw SCAI</h1>
 
       {/* Eligibility Check */}
       <div className="bg-white rounded-lg shadow p-4 mb-4">
         <h2 className="font-bold mb-3">Eligibility Check</h2>
         <div className="space-y-2 text-sm">
           <div className={eligibility.coinsOk ? 'text-green-600' : 'text-red-600'}>
-            {eligibility.coinsOk ? '✅' : '❌'} Coins: {coins} / 1000 required
+            {eligibility.coinsOk ? 'Ã¢Å“â€¦' : 'Ã¢ÂÅ’'} Coins: {coins} / 1000 required
           </div>
           <div className={eligibility.referralsOk ? 'text-green-600' : 'text-red-600'}>
-            {eligibility.referralsOk ? '✅' : '❌'} Referrals: {eligibility.referralCount} / 5 required
+            {eligibility.referralsOk ? 'Ã¢Å“â€¦' : 'Ã¢ÂÅ’'} Referrals: {eligibility.referralCount} / 5 required
           </div>
         </div>
       </div>
@@ -71,7 +71,7 @@ export default function Withdraw() {
         <>
           {submitted ? (
             <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-              ✅ Withdrawal request submitted! Pending admin approval.
+              Ã¢Å“â€¦ Withdrawal request submitted! Pending admin approval.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 space-y-4">

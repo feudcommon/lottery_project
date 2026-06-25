@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useUserStore } from '../store/userStore.ts';
-import { useBalance } from '../hooks/useBalance.ts';
+import { useUserStore } from '../store/userStore';
+import { useBalance } from '../hooks/useBalance';
 import Header from '../components/Header.tsx';
 import BalanceCard from '../components/BalanceCard.tsx';
 import DrawCountdown from '../components/DrawCountdown.tsx';
-import api from '../api/client.ts';
+import api from '../api/client';
 
 export default function Home() {
   const { coins, isLoading, refetch } = useBalance();
