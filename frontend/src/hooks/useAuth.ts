@@ -18,10 +18,12 @@ export const useAuth = () => {
     setError(null);
 
     try {
-      const tg = window.Telegram?.WebApp;
+      const tg = (window as any).Telegram?.WebApp;
       if (!tg) {
-        throw new Error('Telegram WebApp not available');
+        console.warn('Telegram WebApp not available - running in browser mode');
+        // Provide mock data or redirect to Telegram
       }
+    }
 
       const telegramData = tg.initData;
       if (!telegramData) {
