@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useUserStore } from '../store/userStore';
+
 import { useBalance } from '../hooks/useBalance';
 import Header from '../components/Header.tsx';
 import BalanceCard from '../components/BalanceCard.tsx';
