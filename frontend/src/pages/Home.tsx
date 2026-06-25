@@ -7,7 +7,6 @@ import DrawCountdown from '../components/DrawCountdown.tsx';
 import api from '../api/client.ts';
 
 export default function Home() {
-  const { user } = useUserStore();
   const { coins, isLoading, refetch } = useBalance();
   const [spinLoading, setSpinLoading] = useState(false);
   const [lastSpinTime, setLastSpinTime] = useState(null);
