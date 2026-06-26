@@ -1,6 +1,7 @@
 import React from 'react';
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { useUserStore } from './store/userStore';
 import Login from './pages/Login.tsx';
 import Home from './pages/Home.tsx';
@@ -21,16 +22,19 @@ export default function App() {
     if (tg) { tg.ready(); tg.expand(); }
   }, []);
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/tickets" element={<ProtectedRoute><Tickets /></ProtectedRoute>} />
-        <Route path="/draws" element={<ProtectedRoute><Draws /></ProtectedRoute>} />
-        <Route path="/withdraw" element={<ProtectedRoute><Withdraw /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/" element={<Navigate to="/home" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/tickets" element={<ProtectedRoute><Tickets /></ProtectedRoute>} />
+          <Route path="/draws" element={<ProtectedRoute><Draws /></ProtectedRoute>} />
+          <Route path="/withdraw" element={<ProtectedRoute><Withdraw /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+        </Routes>
+      </BrowserRouter>
+      <Analytics />
+    </>
   );
 }
