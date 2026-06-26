@@ -1,22 +1,7 @@
-// src/pages/Withdraw.tsx
 import { useEffect, useState } from 'react';
 import { useBalance } from '../hooks/useBalance';
 import { useWithdraw } from '../hooks/useWithdraw';
 import api from '../api/client';
-
-/**
- * Withdrawal Page
- * 
- * Eligibility:
- * - Minimum 1000 coins
- * - Minimum 5 referrals
- * 
- * Process:
- * 1. User enters wallet address + amount
- * 2. Clicks "Request Withdrawal"
- * 3. Backend creates withdrawal record (pending)
- * 4. Admin approves Ã¢â€ â€™ tokens sent to blockchain
- */
 
 export default function Withdraw() {
   const { coins } = useBalance();
@@ -27,15 +12,13 @@ export default function Withdraw() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    // Check eligibility
     api.get('/api/withdraw/eligibility').then(res => {
       setEligibility(res.data);
-    });
+    }).catch(err => console.error('Failed to fetch eligibility:', err));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
       await requestWithdrawal(walletAddress, Number(amount));
       setSubmitted(true);
@@ -52,17 +35,16 @@ export default function Withdraw() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Ã°Å¸â€™Â¸ Withdraw SCAI</h1>
+      <h1 className="text-2xl font-bold mb-4">Withdraw LLT</h1>
 
-      {/* Eligibility Check */}
       <div className="bg-white rounded-lg shadow p-4 mb-4">
         <h2 className="font-bold mb-3">Eligibility Check</h2>
         <div className="space-y-2 text-sm">
           <div className={eligibility.coinsOk ? 'text-green-600' : 'text-red-600'}>
-            {eligibility.coinsOk ? 'Ã¢Å“â€¦' : 'Ã¢ÂÅ’'} Coins: {coins} / 1000 required
+            {eligibility.coinsOk ? 'YES' : 'NO'} - Coins: {coins} / 1000 required
           </div>
           <div className={eligibility.referralsOk ? 'text-green-600' : 'text-red-600'}>
-            {eligibility.referralsOk ? 'Ã¢Å“â€¦' : 'Ã¢ÂÅ’'} Referrals: {eligibility.referralCount} / 5 required
+            {eligibility.referralsOk ? 'YES' : 'NO'} - Referrals: {eligibility.referralCount} / 5 required
           </div>
         </div>
       </div>
@@ -71,12 +53,12 @@ export default function Withdraw() {
         <>
           {submitted ? (
             <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-              Ã¢Å“â€¦ Withdrawal request submitted! Pending admin approval.
+              Withdrawal request submitted! Pending admin approval.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 space-y-4">
               <div>
-                <label className="block text-sm font-bold mb-2">Wallet Address (0x...)</label>
+                <label className="block text-sm font-bold mb-2">Wallet Address</label>
                 <input
                   type="text"
                   value={walletAddress}
@@ -97,7 +79,7 @@ export default function Withdraw() {
                   required
                   className="w-full border border-gray-300 rounded px-3 py-2"
                 />
-                <p className="text-xs text-gray-500 mt-1">Max available: {coins}</p>
+                <p className="text-xs text-gray-500 mt-1">Max: {coins}</p>
               </div>
 
               {error && (
@@ -118,7 +100,7 @@ export default function Withdraw() {
         </>
       ) : (
         <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          You don't meet the eligibility requirements yet. Come back when you have 1000 coins and 5 referrals!
+          Need 1000 coins and 5 referrals to withdraw.
         </div>
       )}
     </div>

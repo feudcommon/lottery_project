@@ -1,15 +1,5 @@
-// src/pages/Draws.tsx
 import { useEffect, useState } from 'react';
 import api from '../api/client';
-
-/**
- * Draws Page
- * 
- * Shows:
- * - Past draws (scrollable list)
- * - Today's draw (countdown + verify button)
- * - "Verify" opens draw details + seed verification
- */
 
 export default function Draws() {
   const [draws, setDraws] = useState<any[]>([]);
@@ -17,18 +7,19 @@ export default function Draws() {
   const [verifyLoading, setVerifyLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch last 7 days of draws
     api.get('/api/draws/history?days=7').then(res => {
-      setDraws(res.data);
-      setSelectedDraw(res.data[0]); // Show today
-    });
+      setDraws(res.data || []);
+      if (res.data && res.data.length > 0) {
+        setSelectedDraw(res.data[0]);
+      }
+    }).catch(err => console.error('Failed to fetch draws:', err));
   }, []);
 
   const handleVerify = async (date: string) => {
     setVerifyLoading(true);
     try {
       const response = await api.get(`/api/draws/${date}/verify`);
-      alert(response.data.verified ? 'Ã¢Å“â€¦ Draw is fair!' : 'Ã¢ÂÅ’ Draw verification failed');
+      alert(response.data.verified ? 'Draw is fair!' : 'Draw verification failed');
     } catch (error) {
       console.error('Verification failed:', error);
     } finally {
@@ -38,14 +29,14 @@ export default function Draws() {
 
   return (
     <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Ã°Å¸â€œÅ  Draw Results</h1>
+      <h1 className="text-2xl font-bold mb-4">Draw Results</h1>
 
       {selectedDraw && (
         <div className="bg-white rounded-lg shadow p-4 mb-4">
           <h2 className="text-lg font-bold mb-2">{selectedDraw.date}</h2>
 
           {selectedDraw.status === 'pending' ? (
-            <p className="text-yellow-600 font-bold">Ã¢ÂÂ³ Draw pending (18:00)</p>
+            <p className="text-yellow-600 font-bold">Draw pending (18:00)</p>
           ) : selectedDraw.status === 'completed' ? (
             <>
               <p className="mb-2">
@@ -57,7 +48,7 @@ export default function Draws() {
                 disabled={verifyLoading}
                 className="w-full bg-blue-500 text-white py-2 rounded font-bold hover:bg-blue-600 transition disabled:opacity-50"
               >
-                {verifyLoading ? 'Verifying...' : 'Ã°Å¸â€Â Verify Draw'}
+                {verifyLoading ? 'Verifying...' : 'Verify Draw'}
               </button>
 
               {selectedDraw.revealed && (
@@ -71,7 +62,6 @@ export default function Draws() {
         </div>
       )}
 
-      {/* Past draws */}
       <h3 className="font-bold mb-2">Previous Draws</h3>
       <div className="space-y-2">
         {draws.map(draw => (
