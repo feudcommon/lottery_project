@@ -1,6 +1,7 @@
 import React from 'react';
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from "@vercel/analytics/react";
 import { useUserStore } from './store/userStore';
 import Login from './pages/Login.tsx';
 import Home from './pages/Home.tsx';
@@ -20,8 +21,10 @@ export default function App() {
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
   }, []);
+
   return (
     <BrowserRouter>
+      <Analytics />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
