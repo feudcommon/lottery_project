@@ -3,7 +3,7 @@ import { useBalance } from '../hooks/useBalance';
 import api from '../api/client';
 
 export default function Home() {
-  const { coins, isLoading, refetch } = useBalance();
+  const { coins, refetch } = useBalance();
   const [spinLoading, setSpinLoading] = useState(false);
 
   const handleSpin = async () => {
