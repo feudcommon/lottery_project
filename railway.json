@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install",
-  "startCommand": "npm start",
-  "envPrefix": ""
+  "buildCommand": "cd backend && npm install",
+  "startCommand": "cd backend && npm start",
+  "rootDirectory": "backend"
 }
