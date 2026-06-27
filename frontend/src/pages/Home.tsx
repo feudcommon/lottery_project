@@ -86,3 +86,50 @@ export default function Home() {
           {spinMessage && (
             <div style={{
               borderRadius:10,padding:'8px 12px',marginBottom:12,fontSize:13,
+              background: spinMessage.startsWith('+') ? 'rgba(52,211,153,0.1)' : 'rgba(220,38,38,0.1)',
+              border: `1px solid ${spinMessage.startsWith('+') ? 'rgba(52,211,153,0.3)' : 'rgba(220,38,38,0.3)'}`,
+              color: spinMessage.startsWith('+') ? '#34d399' : '#fca5a5',
+            }}>
+              {spinMessage}
+            </div>
+          )}
+
+          <button
+            onClick={handleSpin}
+            disabled={spinLoading}
+            style={{
+              width:'100%',padding:'13px',border:'none',borderRadius:100,
+              background:'linear-gradient(135deg,#7c3aed,#c026d3)',
+              color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',
+              boxShadow:'0 0 30px rgba(192,38,211,0.35)',
+              opacity: spinLoading ? 0.5 : 1,
+              letterSpacing:'0.03em',
+            }}>
+            {spinLoading ? 'Claiming...' : 'Claim Daily Reward'}
+          </button>
+        </div>
+
+        {/* Nav grid */}
+        <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0.75rem' }}>
+          {[
+            { label:'Buy Tickets', href:'/tickets', color:'#7c3aed' },
+            { label:'Results', href:'/draws', color:'#9333ea' },
+            { label:'Withdraw', href:'/withdraw', color:'#c026d3' },
+            { label:'Profile', href:'/profile', color:'rgba(255,255,255,0.08)' },
+          ].map((item) => (
+            <a key={item.href} href={item.href} style={{
+              display:'block',padding:'1rem',borderRadius:16,textAlign:'center',
+              fontWeight:600,fontSize:13,color:'#fff',textDecoration:'none',
+              background: item.color,
+              border:'1px solid rgba(255,255,255,0.08)',
+              letterSpacing:'0.03em',
+            }}>
+              {item.label}
+            </a>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  );
+}
