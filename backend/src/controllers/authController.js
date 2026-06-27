@@ -7,7 +7,9 @@ const { asyncHandler, AppError } = require("../middleware/errorHandler");
 
 const telegramLogin = asyncHandler(async (req, res) => {
   const { initData, referralCode } = req.body;
-
+  console.log('Auth attempt, initData length:', initData?.length);
+  console.log('Verification result:', JSON.stringify(verifyTelegramWebAppData(initData)));
+  
   const verification = verifyTelegramWebAppData(initData);
   if (!verification.valid) {
     throw new AppError(verification.error || "Telegram verification failed", 401);
