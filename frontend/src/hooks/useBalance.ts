@@ -10,7 +10,7 @@ export const useBalance = (refreshInterval = 5000) => {
     try {
       setIsLoading(true);
       const response = await api.get('/api/user/me');
-      setUser(response.data);
+      setUser(response.data.user);
     } catch (error) {
       console.error('Failed to fetch balance:', error);
     } finally {
