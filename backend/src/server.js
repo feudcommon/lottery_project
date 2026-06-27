@@ -1,5 +1,3 @@
-// src/server.js
-
 require("dotenv").config();
 const { createApp } = require("./app");
 const { startLotteryCronJobs } = require("./jobs/lotteryCron");
@@ -9,6 +7,9 @@ if (!config.jwt.secret) {
   console.error("FATAL: JWT_SECRET is not set. Copy .env.example to .env and fill it in.");
   process.exit(1);
 }
+
+// ← ADD THIS LINE
+require("./db/init");
 
 const app = createApp();
 

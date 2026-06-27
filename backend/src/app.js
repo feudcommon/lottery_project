@@ -21,6 +21,7 @@ const drawRoutes = require("./routes/drawRoutes");
 
 function createApp() {
   const app = express();
+app.set('trust proxy', 1); // ← ADD THIS
 
   // --- Security & parsing middleware (runs on EVERY request) ---
   app.use(helmet());                 // sets safe HTTP headers (XSS protection, etc.)
