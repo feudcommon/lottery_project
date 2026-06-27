@@ -6,18 +6,18 @@ export default function Home() {
   const { coins, refetch } = useBalance();
   const [spinLoading, setSpinLoading] = useState(false);
 
-  const handleSpin = async () => {
-    setSpinLoading(true);
-    try {
-      await api.post('/api/spin');
-      refetch();
-    } catch (error) {
-      console.error('Spin failed:', error);
-    } finally {
-      setSpinLoading(false);
-    }
-  };
-
+ const handleSpin = async () => {
+  setSpinLoading(true);
+  try {
+    const result = await api.post('/api/spin');
+    alert('Success! Got ' + result.data.reward + ' coins');
+    refetch();
+  } catch (error: any) {
+    alert('Spin failed: ' + (error.response?.data?.error || error.message));
+  } finally {
+    setSpinLoading(false);
+  }
+};
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-md mx-auto space-y-4">
