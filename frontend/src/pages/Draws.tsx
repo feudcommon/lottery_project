@@ -1,18 +1,28 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import api from '../api/client';
 
 export default function Draws() {
+  const navigate = useNavigate();
   const [draws, setDraws] = useState<any[]>([]);
   const [selectedDraw, setSelectedDraw] = useState<any | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/api/draws/history?days=7').then(res => {
-      setDraws(res.data || []);
-      if (res.data && res.data.length > 0) {
-        setSelectedDraw(res.data[0]);
-      }
-    }).catch(err => console.error('Failed to fetch draws:', err));
+    api.get('/api/draws/history?days=7')
+      .then(res => {
+        setDraws(res.data || []);
+        if (res.data && res.data.length > 0) {
+          setSelectedDraw(res.data[0]);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch draws:', err);
+        setLoading(false);
+      });
   }, []);
 
   const handleVerify = async (date: string) => {
@@ -28,58 +38,196 @@ export default function Draws() {
   };
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Draw Results</h1>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #07050f 0%, #1a0f2e 100%)',
+      color: '#fff',
+      position: 'relative',
+      overflow: 'hidden',
+      fontFamily: 'sans-serif',
+    }}>
+      {/* Background smoke */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 80% 60% at 20% 30%, #3b0764bb 0%, transparent 65%)' }} />
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 60% 50% at 80% 60%, #831843aa 0%, transparent 60%)' }} />
 
-      {selectedDraw && (
-        <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <h2 className="text-lg font-bold mb-2">{selectedDraw.date}</h2>
-
-          {selectedDraw.status === 'pending' ? (
-            <p className="text-yellow-600 font-bold">Draw pending (18:00)</p>
-          ) : selectedDraw.status === 'completed' ? (
-            <>
-              <p className="mb-2">
-                <span className="text-gray-600">Winner:</span>
-                <span className="font-bold ml-2">User #{selectedDraw.winnerId}</span>
-              </p>
-              <button
-                onClick={() => handleVerify(selectedDraw.date)}
-                disabled={verifyLoading}
-                className="w-full bg-blue-500 text-white py-2 rounded font-bold hover:bg-blue-600 transition disabled:opacity-50"
-              >
-                {verifyLoading ? 'Verifying...' : 'Verify Draw'}
-              </button>
-
-              {selectedDraw.revealed && (
-                <div className="mt-4 p-3 bg-gray-100 rounded text-xs break-all">
-                  <p className="font-bold mb-1">Seed:</p>
-                  <p className="font-mono">{selectedDraw.seed}</p>
-                </div>
-              )}
-            </>
-          ) : null}
-        </div>
-      )}
-
-      <h3 className="font-bold mb-2">Previous Draws</h3>
-      <div className="space-y-2">
-        {draws.map(draw => (
+      {/* Content */}
+      <div style={{ position: 'relative', zIndex: 2, padding: '1.5rem' }}>
+        {/* Header with Back Button */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <button
-            key={draw.date}
-            onClick={() => setSelectedDraw(draw)}
-            className={`w-full p-3 rounded text-left transition ${
-              selectedDraw?.date === draw.date
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 hover:bg-gray-200'
-            }`}
+            onClick={() => navigate(-1)}
+            style={{
+              background: 'rgba(232, 121, 249, 0.1)',
+              border: '1px solid rgba(232, 121, 249, 0.3)',
+              color: '#fff',
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              padding: '0',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(232, 121, 249, 0.2)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(232, 121, 249, 0.1)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
           >
-            <div className="font-bold">{draw.date}</div>
-            <div className="text-sm">
-              {draw.status === 'completed' ? `Winner: User #${draw.winnerId}` : 'Pending'}
-            </div>
+            <ArrowLeft size={20} />
           </button>
-        ))}
+          <h1 style={{
+            fontSize: '20px',
+            fontWeight: 'bold',
+            background: 'linear-gradient(90deg, #e879f9, #a78bfa)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            margin: '0',
+            flex: 1,
+            textAlign: 'center',
+          }}>
+            Draw Results
+          </h1>
+          <div style={{ width: '40px' }} />
+        </div>
+
+        {/* Loading State */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '2rem' }}>
+            <div style={{ color: '#a0aec0' }}>Loading draws...</div>
+          </div>
+        ) : (
+          <>
+            {/* Selected Draw Card */}
+            {selectedDraw && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(232, 121, 249, 0.15)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                marginBottom: '1.5rem',
+                boxShadow: '0 0 40px rgba(192, 38, 211, 0.1)',
+              }}>
+                <div style={{ fontSize: '14px', color: '#e879f9', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                  {selectedDraw.date}
+                </div>
+
+                {selectedDraw.status === 'pending' ? (
+                  <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>
+                    ⏳ Draw pending (18:00)
+                  </div>
+                ) : selectedDraw.status === 'completed' ? (
+                  <>
+                    <div style={{ marginBottom: '1rem' }}>
+                      <p style={{ color: '#a0aec0', fontSize: '12px', margin: '0 0 0.5rem 0' }}>Winner</p>
+                      <p style={{ fontSize: '18px', fontWeight: 'bold', background: 'linear-gradient(90deg, #e879f9, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', margin: '0' }}>
+                        User #{selectedDraw.winnerId}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleVerify(selectedDraw.date)}
+                      disabled={verifyLoading}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        background: 'linear-gradient(135deg, #7c3aed, #c026d3)',
+                        border: 'none',
+                        color: '#fff',
+                        borderRadius: '100px',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        boxShadow: '0 0 30px rgba(192, 38, 211, 0.35)',
+                        opacity: verifyLoading ? 0.5 : 1,
+                        transition: 'all 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => !verifyLoading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+                    >
+                      {verifyLoading ? 'Verifying...' : 'Verify Draw'}
+                    </button>
+
+                    {selectedDraw.revealed && (
+                      <div style={{
+                        marginTop: '1rem',
+                        padding: '12px',
+                        background: 'rgba(232, 121, 249, 0.05)',
+                        border: '1px solid rgba(232, 121, 249, 0.2)',
+                        borderRadius: '8px',
+                      }}>
+                        <p style={{ fontSize: '12px', color: '#a0aec0', margin: '0 0 0.5rem 0' }}>Seed:</p>
+                        <p style={{ fontSize: '12px', fontFamily: 'monospace', color: '#cbd5e1', margin: '0', wordBreak: 'break-all' }}>
+                          {selectedDraw.seed}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            )}
+
+            {/* Previous Draws List */}
+            {draws.length > 0 && (
+              <div>
+                <div style={{ fontSize: '12px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#a0aec0', marginBottom: '1rem', fontWeight: '600' }}>
+                  Previous Draws
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {draws.map(draw => (
+                    <button
+                      key={draw.date}
+                      onClick={() => setSelectedDraw(draw)}
+                      style={{
+                        width: '100%',
+                        padding: '1rem',
+                        borderRadius: '12px',
+                        textAlign: 'left',
+                        border: selectedDraw?.date === draw.date
+                          ? '1px solid rgba(232, 121, 249, 0.5)'
+                          : '1px solid rgba(232, 121, 249, 0.15)',
+                        background: selectedDraw?.date === draw.date
+                          ? 'rgba(232, 121, 249, 0.1)'
+                          : 'rgba(255, 255, 255, 0.04)',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        fontSize: '14px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(232, 121, 249, 0.1)';
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = selectedDraw?.date === draw.date
+                          ? 'rgba(232, 121, 249, 0.1)'
+                          : 'rgba(255, 255, 255, 0.04)';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{draw.date}</div>
+                      <div style={{ fontSize: '12px', color: '#a0aec0' }}>
+                        {draw.status === 'completed' ? `Winner: User #${draw.winnerId}` : 'Pending'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {draws.length === 0 && !loading && (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#a0aec0' }}>
+                No draws found
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

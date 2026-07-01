@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { useBalance } from '../hooks/useBalance';
 import { useWithdraw } from '../hooks/useWithdraw';
 import api from '../api/client';
 
 export default function Withdraw() {
+  const navigate = useNavigate();
   const { coins } = useBalance();
   const { requestWithdrawal, isLoading, error } = useWithdraw();
   const [walletAddress, setWalletAddress] = useState('');
@@ -12,9 +15,11 @@ export default function Withdraw() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    api.get('/api/withdraw/eligibility').then(res => {
-      setEligibility(res.data);
-    }).catch(err => console.error('Failed to fetch eligibility:', err));
+    api.get('/api/withdraw/eligibility')
+      .then(res => {
+        setEligibility(res.data);
+      })
+      .catch(err => console.error('Failed to fetch eligibility:', err));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,80 +34,283 @@ export default function Withdraw() {
     }
   };
 
-  if (!eligibility) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
-
   return (
-    <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Withdraw LLT</h1>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #07050f 0%, #1a0f2e 100%)',
+      color: '#fff',
+      position: 'relative',
+      overflow: 'hidden',
+      fontFamily: 'sans-serif',
+      paddingBottom: '2rem',
+    }}>
+      {/* Background smoke */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 80% 60% at 20% 30%, #3b0764bb 0%, transparent 65%)' }} />
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 60% 50% at 80% 60%, #831843aa 0%, transparent 60%)' }} />
 
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <h2 className="font-bold mb-3">Eligibility Check</h2>
-        <div className="space-y-2 text-sm">
-          <div className={eligibility.coinsOk ? 'text-green-600' : 'text-red-600'}>
-            {eligibility.coinsOk ? 'YES' : 'NO'} - Coins: {coins} / 1000 required
-          </div>
-          <div className={eligibility.referralsOk ? 'text-green-600' : 'text-red-600'}>
-            {eligibility.referralsOk ? 'YES' : 'NO'} - Referrals: {eligibility.referralCount} / 5 required
-          </div>
+      {/* Content */}
+      <div style={{ position: 'relative', zIndex: 2, padding: '1.5rem', maxWidth: '600px', margin: '0 auto' }}>
+        {/* Header with Back Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              background: 'rgba(232, 121, 249, 0.1)',
+              border: '1px solid rgba(232, 121, 249, 0.3)',
+              color: '#fff',
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              padding: '0',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(232, 121, 249, 0.2)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(232, 121, 249, 0.1)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 style={{
+            fontSize: '20px',
+            fontWeight: 'bold',
+            background: 'linear-gradient(90deg, #e879f9, #a78bfa)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            margin: '0',
+          }}>
+            Withdraw LLT
+          </h1>
         </div>
-      </div>
 
-      {eligibility.coinsOk && eligibility.referralsOk ? (
-        <>
-          {submitted ? (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-              Withdrawal request submitted! Pending admin approval.
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-bold mb-2">Wallet Address</label>
-                <input
-                  type="text"
-                  value={walletAddress}
-                  onChange={(e) => setWalletAddress(e.target.value)}
-                  placeholder="0x742d35..."
-                  required
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold mb-2">Amount (coins)</label>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  max={coins}
-                  required
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                />
-                <p className="text-xs text-gray-500 mt-1">Max: {coins}</p>
-              </div>
-
-              {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                  {error}
+        {!eligibility ? (
+          <div style={{ textAlign: 'center', color: '#a0aec0', padding: '2rem' }}>
+            Loading eligibility...
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Eligibility Card */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(232, 121, 249, 0.15)',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              boxShadow: '0 0 40px rgba(192, 38, 211, 0.1)',
+            }}>
+              <h2 style={{ fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#e879f9', margin: '0 0 1rem 0' }}>
+                Eligibility Check
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#a0aec0' }}>Coins Required</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{coins} / 1000</div>
+                  </div>
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    color: eligibility.coinsOk ? '#34d399' : '#fca5a5',
+                  }}>
+                    {eligibility.coinsOk ? '✓' : '✗'}
+                  </div>
                 </div>
-              )}
+                <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.1)' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#a0aec0' }}>Referrals Required</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{eligibility.referralCount} / 5</div>
+                  </div>
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    color: eligibility.referralsOk ? '#34d399' : '#fca5a5',
+                  }}>
+                    {eligibility.referralsOk ? '✓' : '✗'}
+                  </div>
+                </div>
+              </div>
+            </div>
 
-              <button
-                type="submit"
-                disabled={isLoading || !walletAddress || !amount}
-                className="w-full bg-blue-500 text-white font-bold py-3 rounded hover:bg-blue-600 transition disabled:opacity-50"
-              >
-                {isLoading ? 'Processing...' : 'Request Withdrawal'}
-              </button>
-            </form>
-          )}
-        </>
-      ) : (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          Need 1000 coins and 5 referrals to withdraw.
-        </div>
-      )}
+            {/* Withdrawal Form */}
+            {eligibility.coinsOk && eligibility.referralsOk ? (
+              <>
+                {submitted ? (
+                  <div style={{
+                    background: 'rgba(52, 211, 153, 0.1)',
+                    border: '1px solid rgba(52, 211, 153, 0.3)',
+                    borderRadius: '12px',
+                    padding: '1.5rem',
+                    textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: '24px', marginBottom: '0.5rem' }}>✓</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#34d399', marginBottom: '0.5rem' }}>
+                      Withdrawal Request Submitted!
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#a0aec0' }}>
+                      Pending admin approval. Check back soon.
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {/* Wallet Address Input */}
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(232, 121, 249, 0.15)',
+                      borderRadius: '16px',
+                      padding: '1.5rem',
+                      boxShadow: '0 0 40px rgba(192, 38, 211, 0.1)',
+                    }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#e879f9', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'block', marginBottom: '0.75rem' }}>
+                        Wallet Address
+                      </label>
+                      <input
+                        type="text"
+                        value={walletAddress}
+                        onChange={(e) => setWalletAddress(e.target.value)}
+                        placeholder="0x742d35Cc6634C0532925a3b844Bc9e7595f..."
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid rgba(232, 121, 249, 0.2)',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '14px',
+                          fontFamily: 'monospace',
+                          boxSizing: 'border-box',
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = 'rgba(232, 121, 249, 0.5)';
+                          e.target.style.background = 'rgba(0, 0, 0, 0.4)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = 'rgba(232, 121, 249, 0.2)';
+                          e.target.style.background = 'rgba(0, 0, 0, 0.3)';
+                        }}
+                      />
+                    </div>
+
+                    {/* Amount Input */}
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(232, 121, 249, 0.15)',
+                      borderRadius: '16px',
+                      padding: '1.5rem',
+                      boxShadow: '0 0 40px rgba(192, 38, 211, 0.1)',
+                    }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#e879f9', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'block', marginBottom: '0.75rem' }}>
+                        Amount (coins)
+                      </label>
+                      <input
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        max={coins}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid rgba(232, 121, 249, 0.2)',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '14px',
+                          boxSizing: 'border-box',
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = 'rgba(232, 121, 249, 0.5)';
+                          e.target.style.background = 'rgba(0, 0, 0, 0.4)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = 'rgba(232, 121, 249, 0.2)';
+                          e.target.style.background = 'rgba(0, 0, 0, 0.3)';
+                        }}
+                      />
+                      <div style={{ fontSize: '11px', color: '#a0aec0', marginTop: '0.5rem' }}>
+                        Max available: {coins} coins
+                      </div>
+                    </div>
+
+                    {/* Error Message */}
+                    {error && (
+                      <div style={{
+                        background: 'rgba(220, 38, 38, 0.1)',
+                        border: '1px solid rgba(220, 38, 38, 0.3)',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        fontSize: '14px',
+                        color: '#fca5a5',
+                      }}>
+                        {error}
+                      </div>
+                    )}
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={isLoading || !walletAddress || !amount}
+                      style={{
+                        width: '100%',
+                        padding: '13px',
+                        background: 'linear-gradient(135deg, #7c3aed, #c026d3)',
+                        border: 'none',
+                        color: '#fff',
+                        borderRadius: '100px',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        boxShadow: '0 0 30px rgba(192, 38, 211, 0.35)',
+                        opacity: isLoading || !walletAddress || !amount ? 0.5 : 1,
+                        transition: 'all 0.2s ease',
+                        letterSpacing: '0.03em',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isLoading && walletAddress && amount) {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(192, 38, 211, 0.4)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 0 30px rgba(192, 38, 211, 0.35)';
+                      }}
+                    >
+                      {isLoading ? 'Processing...' : 'Request Withdrawal'}
+                    </button>
+                  </form>
+                )}
+              </>
+            ) : (
+              <div style={{
+                background: 'rgba(217, 119, 6, 0.1)',
+                border: '1px solid rgba(217, 119, 6, 0.3)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: '18px', marginBottom: '0.5rem' }}>⚠️</div>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#f59e0b', marginBottom: '0.5rem' }}>
+                  Not Eligible Yet
+                </div>
+                <div style={{ fontSize: '12px', color: '#a0aec0' }}>
+                  You need 1000 coins and 5 referrals to withdraw.
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
