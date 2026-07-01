@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Gift } from 'lucide-react';
 import { useBalance } from '../hooks/useBalance';
 import { useWithdraw } from '../hooks/useWithdraw';
 import api from '../api/client';
@@ -33,6 +33,10 @@ export default function Withdraw() {
       console.error('Withdrawal request failed:', err);
     }
   };
+
+  const minCoins = 500;
+  const referralBonus = eligibility?.referralCount >= 5 ? 100 : 0;
+  const isEligible = coins >= minCoins;
 
   return (
     <div style={{
@@ -108,41 +112,51 @@ export default function Withdraw() {
               boxShadow: '0 0 40px rgba(192, 38, 211, 0.1)',
             }}>
               <h2 style={{ fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#e879f9', margin: '0 0 1rem 0' }}>
-                Eligibility Check
+                Requirements
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: '12px', color: '#a0aec0' }}>Coins Required</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{coins} / 1000</div>
+                    <div style={{ fontSize: '12px', color: '#a0aec0' }}>Minimum Coins</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{coins} / {minCoins}</div>
                   </div>
                   <div style={{
-                    fontSize: '12px',
+                    fontSize: '18px',
                     fontWeight: 'bold',
-                    color: eligibility.coinsOk ? '#34d399' : '#fca5a5',
+                    color: isEligible ? '#34d399' : '#fca5a5',
                   }}>
-                    {eligibility.coinsOk ? '✓' : '✗'}
+                    {isEligible ? '✓' : '✗'}
                   </div>
                 </div>
+
+                {/* Referral Bonus Section */}
                 <div style={{ height: '1px', background: 'rgba(148, 163, 184, 0.1)' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '12px', color: '#a0aec0' }}>Referrals Required</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{eligibility.referralCount} / 5</div>
+                <div style={{
+                  background: referralBonus > 0 ? 'rgba(34, 197, 94, 0.05)' : 'rgba(107, 114, 128, 0.05)',
+                  border: `1px solid ${referralBonus > 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(107, 114, 128, 0.2)'}`,
+                  borderRadius: '8px',
+                  padding: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}>
+                  <Gift size={18} style={{ color: referralBonus > 0 ? '#22c55e' : '#6b7280', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12px', color: '#a0aec0' }}>Referral Bonus</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: referralBonus > 0 ? '#22c55e' : '#a0aec0' }}>
+                      {eligibility.referralCount} referrals
+                      {referralBonus > 0 && ` • +${referralBonus} coins bonus!`}
+                    </div>
                   </div>
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    color: eligibility.referralsOk ? '#34d399' : '#fca5a5',
-                  }}>
-                    {eligibility.referralsOk ? '✓' : '✗'}
+                  <div style={{ fontSize: '18px' }}>
+                    {referralBonus > 0 ? '🎉' : ''}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Withdrawal Form */}
-            {eligibility.coinsOk && eligibility.referralsOk ? (
+            {isEligible ? (
               <>
                 {submitted ? (
                   <div style={{
@@ -216,7 +230,7 @@ export default function Withdraw() {
                         type="number"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        max={coins}
+                        max={coins + referralBonus}
                         required
                         style={{
                           width: '100%',
@@ -238,7 +252,7 @@ export default function Withdraw() {
                         }}
                       />
                       <div style={{ fontSize: '11px', color: '#a0aec0', marginTop: '0.5rem' }}>
-                        Max available: {coins} coins
+                        Available: {coins} coins{referralBonus > 0 && ` + ${referralBonus} bonus`}
                       </div>
                     </div>
 
@@ -301,11 +315,34 @@ export default function Withdraw() {
               }}>
                 <div style={{ fontSize: '18px', marginBottom: '0.5rem' }}>⚠️</div>
                 <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#f59e0b', marginBottom: '0.5rem' }}>
-                  Not Eligible Yet
+                  Not Quite There Yet
                 </div>
-                <div style={{ fontSize: '12px', color: '#a0aec0' }}>
-                  You need 1000 coins and 5 referrals to withdraw.
+                <div style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '1rem' }}>
+                  You need {minCoins - coins} more coins to withdraw.
                 </div>
+                <div style={{ fontSize: '11px', color: '#a0aec0', background: 'rgba(0, 0, 0, 0.2)', padding: '0.5rem', borderRadius: '6px' }}>
+                  💡 Keep playing daily spins and buying tickets to reach {minCoins} coins!
+                </div>
+              </div>
+            )}
+
+            {/* Referral Info Footer */}
+            {isEligible && (
+              <div style={{
+                background: 'rgba(34, 197, 94, 0.05)',
+                border: '1px solid rgba(34, 197, 94, 0.2)',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '12px',
+                color: '#a0aec0',
+                textAlign: 'center',
+              }}>
+                💚 Earn referral bonuses by inviting friends to play!
+                {referralBonus > 0 && (
+                  <div style={{ color: '#22c55e', fontWeight: 'bold', marginTop: '0.25rem' }}>
+                    You already have a +{referralBonus} coin bonus!
+                  </div>
+                )}
               </div>
             )}
           </div>
