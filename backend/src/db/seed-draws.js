@@ -1,4 +1,4 @@
-.// backend/src/db/seed-draws.js
+// backend/src/db/seed-draws.js
 const db = require('./connection');
 
 const testDraws = [
