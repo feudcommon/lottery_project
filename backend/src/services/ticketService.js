@@ -37,9 +37,10 @@ function isSalesOpen() {
  * Returns how many ticket slots are still available for a given draw date.
  */
 function getAvailableTicketCount(drawDate) {
-  const sold = db
+  const result = db
     .prepare("SELECT COUNT(*) as count FROM tickets WHERE draw_date = ?")
-    .get(drawDate).count;
+    .get(drawDate);
+  const sold = result ? result.count : 0;
   return Math.max(0, config.game.totalTicketsPerDay - sold);
 }
 
@@ -72,9 +73,10 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
   }
 
   // 3. Enforce per-user daily ticket limit
-  const userTicketsToday = db
+  const userTicketsResult = db
     .prepare("SELECT COUNT(*) as count FROM tickets WHERE user_id = ? AND draw_date = ?")
-    .get(userId, drawDate).count;
+    .get(userId, drawDate);
+  const userTicketsToday = userTicketsResult ? userTicketsResult.count : 0;
   if (userTicketsToday >= config.game.maxTicketsPerUserPerDay) {
     throw new AppError(
       `You already have ${userTicketsToday} ticket(s) today. Limit is ${config.game.maxTicketsPerUserPerDay}.`,
@@ -91,14 +93,15 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
   }
 
   // 5. Enforce global daily ticket cap & find next available slot number
-  const soldCount = db
+  const soldResult = db
     .prepare("SELECT COUNT(*) as count FROM tickets WHERE draw_date = ?")
-    .get(drawDate).count;
+    .get(drawDate);
+  const soldCount = soldResult ? soldResult.count : 0;
   if (soldCount >= config.game.totalTicketsPerDay) {
     throw new AppError("Sold out — all tickets for today are gone.", 400);
   }
 
-  // Find the lowest unsold ticket_number (1-indexed) for this draw date
+  // Find the lowest unsold ticket_number (0-indexed, 0-49) for this draw date
   const soldNumbers = new Set(
     db
       .prepare("SELECT ticket_number FROM tickets WHERE draw_date = ?")
@@ -106,7 +109,7 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
       .map((r) => r.ticket_number)
   );
   let ticketNumber = null;
-  for (let n = 1; n <= config.game.totalTicketsPerDay; n++) {
+  for (let n = 0; n < config.game.totalTicketsPerDay; n++) {
     if (!soldNumbers.has(n)) {
       ticketNumber = n;
       break;
@@ -137,9 +140,7 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
   `).run(userId, -config.game.ticketPrice, result.lastInsertRowid, newBalance);
 
   // 9. Update the draw's running total
-  db.prepare("UPDATE draws SET total_tickets_sold = total_tickets_sold + 1 WHERE draw_date = ?").run(
-    drawDate
-  );
+  db.prepare("UPDATE draws SET total_tickets_sold = total_tickets_sold + 1 WHERE draw_date = ?").run(drawDate);
 
   return {
     ticketId: result.lastInsertRowid,
