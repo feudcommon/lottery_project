@@ -11,7 +11,7 @@
 // a SQLite transaction. better-sqlite3 transactions are synchronous and
 // the whole project runs single-threaded for these operations, so once a
 // transaction starts, no other request can interleave with it. Combined
-// with the UNIQUE(draw_date, ticket_number) constraint from the schema,
+// with the UNIQUE(date, slot_number) constraint from the schema,
 // a ticket slot literally cannot be sold twice even if our app logic had
 // a bug — the database itself refuses the second insert.
 
@@ -38,7 +38,7 @@ function isSalesOpen() {
  */
 function getAvailableTicketCount(drawDate) {
   const sold = db
-    .prepare("SELECT COUNT(*) as count FROM tickets WHERE draw_date = ?")
+    .prepare("SELECT COUNT(*) as count FROM tickets WHERE date = ?")
     .get(drawDate).count;
   return Math.max(0, config.game.totalTicketsPerDay - sold);
 }
@@ -62,10 +62,10 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
 
   // 2. Check draw exists and is open (created by the cron job at day start,
   //    but we self-heal here in case it's the very first request of the day)
-  let draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+  let draw = db.prepare("SELECT * FROM draws WHERE date = ?").get(drawDate);
   if (!draw) {
-    db.prepare("INSERT INTO draws (draw_date, status) VALUES (?, 'open')").run(drawDate);
-    draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+    db.prepare("INSERT INTO draws (date, status) VALUES (?, 'open')").run(drawDate);
+    draw = db.prepare("SELECT * FROM draws WHERE date = ?").get(drawDate);
   }
   if (draw.status !== "open") {
     throw new AppError("This draw is no longer accepting ticket purchases", 400);
@@ -73,7 +73,7 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
 
   // 3. Enforce per-user daily ticket limit
   const userTicketsToday = db
-    .prepare("SELECT COUNT(*) as count FROM tickets WHERE user_id = ? AND draw_date = ?")
+    .prepare("SELECT COUNT(*) as count FROM tickets WHERE user_id = ? AND date = ?")
     .get(userId, drawDate).count;
   if (userTicketsToday >= config.game.maxTicketsPerUserPerDay) {
     throw new AppError(
@@ -92,27 +92,27 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
 
   // 5. Enforce global daily ticket cap & find next available slot number
   const soldCount = db
-    .prepare("SELECT COUNT(*) as count FROM tickets WHERE draw_date = ?")
+    .prepare("SELECT COUNT(*) as count FROM tickets WHERE date = ?")
     .get(drawDate).count;
   if (soldCount >= config.game.totalTicketsPerDay) {
     throw new AppError("Sold out — all tickets for today are gone.", 400);
   }
 
-  // Find the lowest unsold ticket_number (1-indexed) for this draw date
+  // Find the lowest unsold slot_number (0-indexed, 0-49) for this draw date
   const soldNumbers = new Set(
     db
-      .prepare("SELECT ticket_number FROM tickets WHERE draw_date = ?")
+      .prepare("SELECT slot_number FROM tickets WHERE date = ?")
       .all(drawDate)
-      .map((r) => r.ticket_number)
+      .map((r) => r.slot_number)
   );
-  let ticketNumber = null;
-  for (let n = 1; n <= config.game.totalTicketsPerDay; n++) {
+  let slotNumber = null;
+  for (let n = 0; n < config.game.totalTicketsPerDay; n++) {
     if (!soldNumbers.has(n)) {
-      ticketNumber = n;
+      slotNumber = n;
       break;
     }
   }
-  if (ticketNumber === null) {
+  if (slotNumber === null) {
     throw new AppError("Sold out — all tickets for today are gone.", 400);
   }
 
@@ -120,15 +120,15 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
   const newBalance = user.coins - config.game.ticketPrice;
   db.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, userId);
 
-  // 7. Insert the ticket. The UNIQUE(draw_date, ticket_number) constraint
+  // 7. Insert the ticket. The UNIQUE(date, slot_number) constraint
   //    means if somehow two transactions raced to this exact slot, the
   //    DB itself throws here and the whole transaction rolls back —
   //    including the coin deduction above. Nobody loses coins for nothing.
   const insertTicket = db.prepare(`
-    INSERT INTO tickets (user_id, draw_date, ticket_number, price_paid)
+    INSERT INTO tickets (user_id, date, slot_number, price_paid)
     VALUES (?, ?, ?, ?)
   `);
-  const result = insertTicket.run(userId, drawDate, ticketNumber, config.game.ticketPrice);
+  const result = insertTicket.run(userId, drawDate, slotNumber, config.game.ticketPrice);
 
   // 8. Log the transaction for auditability
   db.prepare(`
@@ -137,13 +137,11 @@ const buyTicketTransaction = db.transaction((userId, drawDate) => {
   `).run(userId, -config.game.ticketPrice, result.lastInsertRowid, newBalance);
 
   // 9. Update the draw's running total
-  db.prepare("UPDATE draws SET total_tickets_sold = total_tickets_sold + 1 WHERE draw_date = ?").run(
-    drawDate
-  );
+  db.prepare("UPDATE draws SET total_tickets = total_tickets + 1 WHERE date = ?").run(drawDate);
 
   return {
     ticketId: result.lastInsertRowid,
-    ticketNumber,
+    slotNumber,
     drawDate,
     coinsRemaining: newBalance,
   };
@@ -168,7 +166,7 @@ function buyTicket(userId, drawDate) {
 function getMyTicketsForDate(userId, drawDate) {
   const date = drawDate || todayDateString();
   return db
-    .prepare("SELECT * FROM tickets WHERE user_id = ? AND draw_date = ? ORDER BY ticket_number")
+    .prepare("SELECT * FROM tickets WHERE user_id = ? AND date = ? ORDER BY slot_number")
     .all(userId, date);
 }
 
