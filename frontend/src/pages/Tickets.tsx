@@ -16,8 +16,18 @@ export default function Tickets() {
   useEffect(() => {
     api.get('/api/tickets/today')
       .then(res => {
-        setTickets(res.data.tickets || []);
-        setYourTickets(res.data.yourSlots || []);
+        console.log("Tickets API response:", res.data);
+        
+        // Extract ticket numbers from the response
+        // Backend returns: res.data.tickets = all sold tickets, res.data.myTickets = user's tickets
+        const allTickets = (res.data.tickets || []).map((t: any) => t.ticket_number);
+        const userTickets = (res.data.myTickets || []).map((t: any) => t.ticket_number);
+        
+        console.log("All tickets:", allTickets);
+        console.log("Your tickets:", userTickets);
+        
+        setTickets(allTickets);
+        setYourTickets(userTickets);
         setLoading(false);
       })
       .catch(err => {
@@ -30,8 +40,12 @@ export default function Tickets() {
     try {
       await buyTicket();
       const res = await api.get('/api/tickets/today');
-      setTickets(res.data.tickets || []);
-      setYourTickets(res.data.yourSlots || []);
+      
+      const allTickets = (res.data.tickets || []).map((t: any) => t.ticket_number);
+      const userTickets = (res.data.myTickets || []).map((t: any) => t.ticket_number);
+      
+      setTickets(allTickets);
+      setYourTickets(userTickets);
     } catch (err) {
       console.error('Failed to buy ticket:', err);
     }
@@ -140,42 +154,47 @@ export default function Tickets() {
               gap: '0.5rem',
               marginBottom: '1.5rem',
             }}>
-              {Array.from({ length: 50 }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleBuyTicket(i)}
-                  disabled={yourTickets.includes(i) || coins < 10 || isLoading}
-                  style={{
-                    aspectRatio: '1',
-                    padding: '0.5rem',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    border: 'none',
-                    cursor: yourTickets.includes(i) || coins < 10 || isLoading ? 'not-allowed' : 'pointer',
-                    background: yourTickets.includes(i)
-                      ? 'linear-gradient(135deg, #34d399, #10b981)'
-                      : tickets.includes(i)
-                      ? 'rgba(107, 114, 128, 0.3)'
-                      : 'linear-gradient(135deg, #7c3aed, #c026d3)',
-                    color: '#fff',
-                    transition: 'all 0.2s ease',
-                    opacity: yourTickets.includes(i) || tickets.includes(i) ? 0.6 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!yourTickets.includes(i) && !tickets.includes(i) && coins >= 10 && !isLoading) {
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                      e.currentTarget.style.boxShadow = '0 0 20px rgba(192, 38, 211, 0.3)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  {i}
-                </button>
-              ))}
+              {Array.from({ length: 50 }).map((_, i) => {
+                const isYours = yourTickets.includes(i);
+                const isSold = tickets.includes(i);
+                
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleBuyTicket(i)}
+                    disabled={isYours || isSold || coins < 10 || isLoading}
+                    style={{
+                      aspectRatio: '1',
+                      padding: '0.5rem',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      border: 'none',
+                      cursor: isYours || isSold || coins < 10 || isLoading ? 'not-allowed' : 'pointer',
+                      background: isYours
+                        ? 'linear-gradient(135deg, #34d399, #10b981)'
+                        : isSold
+                        ? 'rgba(107, 114, 128, 0.3)'
+                        : 'linear-gradient(135deg, #7c3aed, #c026d3)',
+                      color: '#fff',
+                      transition: 'all 0.2s ease',
+                      opacity: isYours || isSold ? 0.6 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isYours && !isSold && coins >= 10 && !isLoading) {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 0 20px rgba(192, 38, 211, 0.3)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    {i}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Legend */}
