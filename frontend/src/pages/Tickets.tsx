@@ -2,52 +2,66 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useBalance } from '../hooks/useBalance';
-import { useTickets } from '../hooks/useTickets';
 import api from '../api/client';
 
 export default function Tickets() {
   const navigate = useNavigate();
   const { coins } = useBalance();
-  const { buyTicket, isLoading, error } = useTickets();
   const [tickets, setTickets] = useState<number[]>([]);
   const [yourTickets, setYourTickets] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.get('/api/tickets/today')
-      .then(res => {
-        console.log("Tickets API response:", res.data);
-        
-        // Extract ticket numbers from the response
-        // Backend returns: res.data.tickets = all sold tickets, res.data.myTickets = user's tickets
-        const allTickets = (res.data.tickets || []).map((t: any) => t.ticket_number);
-        const userTickets = (res.data.myTickets || []).map((t: any) => t.ticket_number);
-        
-        console.log("All tickets:", allTickets);
-        console.log("Your tickets:", userTickets);
-        
-        setTickets(allTickets);
-        setYourTickets(userTickets);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('Failed to fetch tickets:', err);
-        setLoading(false);
-      });
-  }, []);
-
-  const handleBuyTicket = async (slotNumber: number) => {
+  const loadTickets = async () => {
     try {
-      await buyTicket();
       const res = await api.get('/api/tickets/today');
+      console.log("Tickets API response:", res.data);
       
       const allTickets = (res.data.tickets || []).map((t: any) => t.ticket_number);
       const userTickets = (res.data.myTickets || []).map((t: any) => t.ticket_number);
       
+      console.log("All tickets:", allTickets);
+      console.log("Your tickets:", userTickets);
+      
       setTickets(allTickets);
       setYourTickets(userTickets);
+      setError(null);
     } catch (err) {
+      console.error('Failed to fetch tickets:', err);
+      setError('Failed to load tickets');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTickets();
+  }, []);
+
+  const handleBuyTicket = async (slotNumber: number) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      console.log("Buying ticket for slot:", slotNumber);
+      
+      // ✅ Send slotNumber to backend
+      const result = await api.post('/api/buy-ticket', {
+        drawDate: new Date().toISOString().split('T')[0],
+        slotNumber: slotNumber
+      });
+      
+      console.log("Ticket purchased:", result.data);
+      
+      // Refresh the ticket list
+      await loadTickets();
+    } catch (err: any) {
       console.error('Failed to buy ticket:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to buy ticket';
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
     }
   };
 

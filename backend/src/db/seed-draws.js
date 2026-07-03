@@ -12,5 +12,6 @@ testDraws.forEach(draw => {
     VALUES (?, ?, ?)
   `).run(draw.date, draw.status, draw.winnerId);
 });
+//seed-draws.js
 
 console.log('Test draws created!');

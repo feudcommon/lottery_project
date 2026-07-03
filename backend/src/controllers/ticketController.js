@@ -5,8 +5,8 @@ const { asyncHandler } = require("../middleware/errorHandler");
 
 // POST /api/buy-ticket
 const buyTicket = asyncHandler(async (req, res) => {
-  const { drawDate } = req.body;
-  const result = ticketService.buyTicket(req.user.id, drawDate);
+  const { drawDate, slotNumber } = req.body;
+  const result = ticketService.buyTicket(req.user.id, drawDate, slotNumber);
   res.status(201).json({ message: "Ticket purchased!", ticket: result });
 });
 
