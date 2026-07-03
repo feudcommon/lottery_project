@@ -5,8 +5,10 @@ const { asyncHandler } = require("../middleware/errorHandler");
 
 // POST /api/buy-ticket
 const buyTicket = asyncHandler(async (req, res) => {
-  const { drawDate, slotNumber } = req.body;
-  const result = ticketService.buyTicket(req.user.id, drawDate, slotNumber);
+  const { drawDate, slotNumber } = req.body;  // ✅ Get slotNumber from request
+  console.log("Buying ticket - userId:", req.user.id, "slotNumber:", slotNumber);
+  
+  const result = ticketService.buyTicket(req.user.id, drawDate, slotNumber);  // ✅ Pass slotNumber
   res.status(201).json({ message: "Ticket purchased!", ticket: result });
 });
 
@@ -27,8 +29,8 @@ const getMyTicketsToday = asyncHandler(async (req, res) => {
   res.json({
     drawDate,
     salesOpen: ticketService.isSalesOpen(),
-    tickets: allTickets,          // ✅ ALL sold tickets (show as gray)
-    myTickets: myTickets,         // ✅ User's tickets (show as green)
+    tickets: allTickets,          // ✅ ALL sold tickets
+    myTickets: myTickets,         // ✅ User's tickets
     ticketsAvailable: available,
   });
 });
