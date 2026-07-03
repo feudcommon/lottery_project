@@ -7,19 +7,17 @@ export const useTickets = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, setUser } = useUserStore();
 
-  const buyTicket = async (drawDate?: string) => {
+  const buyTicket = async (slotNumber: number, drawDate?: string) => {
     setIsLoading(true);
     setError(null);
-
     try {
       const response = await api.post('/api/buy-ticket', {
+        slotNumber,
         drawDate: drawDate || new Date().toISOString().split('T')[0],
       });
-
       if (user) {
         setUser({ ...user, coins: response.data.userCoins });
       }
-
       return response.data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to buy ticket';
