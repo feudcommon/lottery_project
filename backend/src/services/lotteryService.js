@@ -187,9 +187,19 @@ function getDraw(drawDate) {
   return db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
 }
 
+function getDrawHistory(days = 7) {
+  const draws = db.prepare(`
+    SELECT * FROM draws 
+    ORDER BY draw_date DESC 
+    LIMIT ?
+  `).all(days);
+  
+  return draws || [];
+}
 module.exports = {
   closeSalesAndCommitSeed,
   runDraw,
   verifyDrawFairness,
   getDraw,
+  getDrawHistory,  // ✅ ADD THIS
 };
