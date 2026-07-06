@@ -34,9 +34,9 @@ export default function Withdraw() {
     }
   };
 
-  const minCoins = 500;
+  const minCoins = eligibility?.minCoins ?? 0;
   const referralBonus = eligibility?.referralCount >= 5 ? 100 : 0;
-  const isEligible = coins >= minCoins;
+  const isEligible = eligibility?.eligible ?? false;
 
   return (
     <div style={{

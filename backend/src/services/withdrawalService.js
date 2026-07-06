@@ -1,28 +1,12 @@
-// src/services/withdrawalService.js
-//
-// The "viral lock" growth mechanic lives here: a user can have a million
-// coins, but withdrawal stays locked until they've referred enough ACTIVE
-// users (active = users who actually played, not just clicked a link —
-// enforced back in userService.markReferralActiveIfNeeded).
-//
-// On the blockchain side: this implementation does NOT call a smart
-// contract directly from the API request. Instead it creates a 'pending'
-// withdrawal record. Why not call the chain synchronously?
-//   - Blockchain transactions can fail, get stuck, or take time to confirm.
-//   - If your API call to the chain fails AFTER you've already deducted
-//     coins, the user loses coins with nothing to show for it.
-//   - Decoupling it means: deduct coins + create pending record in one DB
-//     transaction (fast, reliable), then a SEPARATE worker/admin action
-//     processes the chain transfer and updates status afterward.
-// This is the same pattern real exchanges use for withdrawals.
-
-// src/services/withdrawalService.js
 const db = require('../db/connection');
 const { AppError } = require('../middleware/errorHandler');
 const { sendTokensOnChain } = require('./blockchainService');
 const config = require('../config');
 
 // ─── Eligibility check ────────────────────────────────────────────────────────
+// Returns everything the frontend needs to render requirements + reasons,
+// so the UI never has to hardcode thresholds itself — it just reflects
+// whatever this function (and therefore config.withdrawal) says.
 
 function checkEligibility(user) {
   const reasons = [];
@@ -32,7 +16,14 @@ function checkEligibility(user) {
   if (user.referral_count < config.withdrawal.minReferrals) {
     reasons.push(`Need ${config.withdrawal.minReferrals} active referrals (you have ${user.referral_count})`);
   }
-  return { eligible: reasons.length === 0, reasons };
+  return {
+    eligible: reasons.length === 0,
+    reasons,
+    minCoins: config.withdrawal.minCoins,
+    minReferrals: config.withdrawal.minReferrals,
+    currentCoins: user.coins,
+    referralCount: user.referral_count,
+  };
 }
 
 // ─── Request withdrawal (validates, sends on-chain, records in DB) ─────────────
