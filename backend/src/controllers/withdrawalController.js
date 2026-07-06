@@ -6,7 +6,7 @@ const { asyncHandler } = require("../middleware/errorHandler");
 // POST /api/withdraw
 const withdraw = asyncHandler(async (req, res) => {
   const { walletAddress, amountCoins } = req.body;
-  const result = withdrawalService.requestWithdrawal(req.user.id, walletAddress, amountCoins);
+  const result = await withdrawalService.requestWithdrawal(req.user.id, walletAddress, amountCoins);
   res.status(201).json({
     message: "Withdrawal request submitted and pending processing.",
     withdrawal: result,
