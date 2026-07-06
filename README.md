@@ -218,7 +218,7 @@ npm run build
 # Push to GitHub, Vercel auto-deploys
 ```
 
-Live URL: [lottery-project-k02qnq47d.vercel.app](https://lottery-project-k02qnq47d.vercel.app)
+Live URL: [lottery-project-rouge.vercel.app/login](https://lottery-project-rouge.vercel.app/login)
 
 ### Backend (Railway)
 ```bash
