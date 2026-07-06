@@ -102,6 +102,7 @@ async function sendTokensOnChain(toAddress, amountCoins) {
     // Mint tokens to backend wallet first
     console.log('Minting tokens...');
     const mintTx = await contract.mint(signer.address, amountTokens);
+    console.log('Mint tx submitted:', mintTx.hash);  
     await mintTx.wait(1);
     console.log('Mint confirmed:', mintTx.hash);
 
