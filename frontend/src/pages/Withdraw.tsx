@@ -339,7 +339,7 @@ export default function Withdraw() {
                   You need {minCoins - coins} more coins to withdraw.
                 </div>
                 <div style={{ fontSize: '11px', color: '#a0aec0', background: 'rgba(0, 0, 0, 0.2)', padding: '0.5rem', borderRadius: '6px' }}>
-                  💡 Keep playing daily spins and buying tickets to reach {minCoins} coins!
+                   Keep playing daily spins and buying tickets to reach {minCoins} coins!
                 </div>
               </div>
             )}
@@ -355,7 +355,7 @@ export default function Withdraw() {
                 color: '#a0aec0',
                 textAlign: 'center',
               }}>
-                💚 Earn referral bonuses by inviting friends to play!
+                 Earn referral bonuses by inviting friends to play!
                 {referralBonus > 0 && (
                   <div style={{ color: '#22c55e', fontWeight: 'bold', marginTop: '0.25rem' }}>
                     You already have a +{referralBonus} coin bonus!
