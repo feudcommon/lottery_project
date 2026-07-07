@@ -13,9 +13,11 @@ export default function Draws() {
   useEffect(() => {
     api.get('/api/draws/history?days=7')
       .then(res => {
-        setDraws(res.data || []);
-        if (res.data && res.data.length > 0) {
-          setSelectedDraw(res.data[0]);
+        // Backend returns { draws: [...] }, not a bare array
+        const drawList = res.data?.draws || [];
+        setDraws(drawList);
+        if (drawList.length > 0) {
+          setSelectedDraw(drawList[0]);
         }
         setLoading(false);
       })
@@ -115,24 +117,25 @@ export default function Draws() {
                 boxShadow: '0 0 40px rgba(192, 38, 211, 0.1)',
               }}>
                 <div style={{ fontSize: '14px', color: '#e879f9', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                  {selectedDraw.date}
+                  {selectedDraw.draw_date}
                 </div>
 
-                {selectedDraw.status === 'pending' ? (
-                  <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>
-                    ⏳ Draw pending (18:00)
-                  </div>
-                ) : selectedDraw.status === 'completed' ? (
+                {selectedDraw.status === 'drawn' ? (
                   <>
                     <div style={{ marginBottom: '1rem' }}>
                       <p style={{ color: '#a0aec0', fontSize: '12px', margin: '0 0 0.5rem 0' }}>Winner</p>
                       <p style={{ fontSize: '18px', fontWeight: 'bold', background: 'linear-gradient(90deg, #e879f9, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', margin: '0' }}>
-                        User #{selectedDraw.winnerId}
+                        User #{selectedDraw.winner_user_id}
                       </p>
+                      {selectedDraw.reward_amount != null && (
+                        <p style={{ color: '#a0aec0', fontSize: '12px', margin: '0.5rem 0 0 0' }}>
+                          Reward: {selectedDraw.reward_amount} coins
+                        </p>
+                      )}
                     </div>
 
                     <button
-                      onClick={() => handleVerify(selectedDraw.date)}
+                      onClick={() => handleVerify(selectedDraw.draw_date)}
                       disabled={verifyLoading}
                       style={{
                         width: '100%',
@@ -154,7 +157,7 @@ export default function Draws() {
                       {verifyLoading ? 'Verifying...' : 'Verify Draw'}
                     </button>
 
-                    {selectedDraw.revealed && (
+                    {selectedDraw.random_seed && (
                       <div style={{
                         marginTop: '1rem',
                         padding: '12px',
@@ -162,14 +165,22 @@ export default function Draws() {
                         border: '1px solid rgba(232, 121, 249, 0.2)',
                         borderRadius: '8px',
                       }}>
-                        <p style={{ fontSize: '12px', color: '#a0aec0', margin: '0 0 0.5rem 0' }}>Seed:</p>
+                        <p style={{ fontSize: '12px', color: '#a0aec0', margin: '0 0 0.5rem 0' }}>Revealed Seed:</p>
                         <p style={{ fontSize: '12px', fontFamily: 'monospace', color: '#cbd5e1', margin: '0', wordBreak: 'break-all' }}>
-                          {selectedDraw.seed}
+                          {selectedDraw.random_seed}
                         </p>
                       </div>
                     )}
                   </>
-                ) : null}
+                ) : selectedDraw.status === 'closed' ? (
+                  <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>
+                    Sales closed — draw pending
+                  </div>
+                ) : (
+                  <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>
+                    Sales open — draw pending
+                  </div>
+                )}
               </div>
             )}
 
@@ -182,17 +193,17 @@ export default function Draws() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {draws.map(draw => (
                     <button
-                      key={draw.date}
+                      key={draw.draw_date}
                       onClick={() => setSelectedDraw(draw)}
                       style={{
                         width: '100%',
                         padding: '1rem',
                         borderRadius: '12px',
                         textAlign: 'left',
-                        border: selectedDraw?.date === draw.date
+                        border: selectedDraw?.draw_date === draw.draw_date
                           ? '1px solid rgba(232, 121, 249, 0.5)'
                           : '1px solid rgba(232, 121, 249, 0.15)',
-                        background: selectedDraw?.date === draw.date
+                        background: selectedDraw?.draw_date === draw.draw_date
                           ? 'rgba(232, 121, 249, 0.1)'
                           : 'rgba(255, 255, 255, 0.04)',
                         color: '#fff',
@@ -205,15 +216,15 @@ export default function Draws() {
                         e.currentTarget.style.transform = 'translateX(4px)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = selectedDraw?.date === draw.date
+                        e.currentTarget.style.background = selectedDraw?.draw_date === draw.draw_date
                           ? 'rgba(232, 121, 249, 0.1)'
                           : 'rgba(255, 255, 255, 0.04)';
                         e.currentTarget.style.transform = 'translateX(0)';
                       }}
                     >
-                      <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{draw.date}</div>
+                      <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{draw.draw_date}</div>
                       <div style={{ fontSize: '12px', color: '#a0aec0' }}>
-                        {draw.status === 'completed' ? `Winner: User #${draw.winnerId}` : 'Pending'}
+                        {draw.status === 'drawn' ? `Winner: User #${draw.winner_user_id}` : 'Pending'}
                       </div>
                     </button>
                   ))}
