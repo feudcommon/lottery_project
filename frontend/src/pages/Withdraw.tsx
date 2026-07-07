@@ -13,6 +13,7 @@ export default function Withdraw() {
   const [amount, setAmount] = useState('');
   const [eligibility, setEligibility] = useState<any>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [withdrawalResult, setWithdrawalResult] = useState<any>(null);
 
   useEffect(() => {
     api.get('/api/withdraw/eligibility')
@@ -25,7 +26,8 @@ export default function Withdraw() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await requestWithdrawal(walletAddress, Number(amount));
+      const result = await requestWithdrawal(walletAddress, Number(amount));
+      setWithdrawalResult(result.withdrawal);
       setSubmitted(true);
       setWalletAddress('');
       setAmount('');
@@ -168,11 +170,27 @@ export default function Withdraw() {
                   }}>
                     <div style={{ fontSize: '24px', marginBottom: '0.5rem' }}>✓</div>
                     <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#34d399', marginBottom: '0.5rem' }}>
-                      Withdrawal Request Submitted!
+                      Withdrawal Complete!
                     </div>
-                    <div style={{ fontSize: '12px', color: '#a0aec0' }}>
-                      Pending admin approval. Check back soon.
+                    <div style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '1rem' }}>
+                      {withdrawalResult?.tokenAmount} LLT sent to your wallet
                     </div>
+                    {withdrawalResult?.explorerUrl && (
+                      <a
+                        href={withdrawalResult.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-block',
+                          fontSize: '13px',
+                          color: '#e879f9',
+                          textDecoration: 'underline',
+                          wordBreak: 'break-all',
+                        }}
+                      >
+                        View transaction on Explorer ↗
+                      </a>
+                    )}
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

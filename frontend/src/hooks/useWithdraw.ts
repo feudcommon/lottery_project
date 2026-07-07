@@ -8,16 +8,14 @@ export const useWithdraw = () => {
   const requestWithdrawal = async (walletAddress: string, amountCoins: number) => {
     setIsLoading(true);
     setError(null);
-
     try {
       const response = await api.post('/api/withdraw', {
         walletAddress,
         amountCoins,
       });
-
       return response.data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Withdrawal failed';
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || 'Withdrawal failed';
       setError(errorMessage);
       throw err;
     } finally {
