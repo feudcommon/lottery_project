@@ -20,29 +20,19 @@
 // holds a wallet whose private key is used ONLY to sign these payout
 // transactions. This file shows where that integration plugs in — using
 // ethers.js, the standard library for this.
-//
-// THIS IS A STUB. To make it real you need:
-//   npm install ethers
-//   1. Deploy an ERC-20 contract (OpenZeppelin's ERC20.sol is the standard base)
-//   2. Set these env vars: RPC_URL, BACKEND_WALLET_PRIVATE_KEY, TOKEN_CONTRACT_ADDRESS
-//   3. Uncomment the ethers logic below
 
-/**
- * Sends `amount` SCAI tokens to `toAddress`.
- * Returns the transaction hash once confirmed.
- *
- * NOTE: this is intentionally a stub that throws — wire up real ethers.js
- * calls (commented below) once you have a deployed contract + funded
- * backend wallet. Keeping it as an explicit stub is safer than silently
- * "pretending" to send tokens.
- */
-// src/services/blockchainService.js
 const { ethers } = require('ethers');
 const { AppError } = require('../middleware/errorHandler');
 
 const RPC_URL = process.env.RPC_URL;
 const BACKEND_PRIVATE_KEY = process.env.BACKEND_PRIVATE_KEY;
 const LLT_CONTRACT_ADDRESS = process.env.LLT_CONTRACT_ADDRESS;
+
+// ─── PATCH: timeouts / retry tuning ─────────────────────────────────────────
+// How long to wait for the RPC to confirm a tx before giving up and
+// reporting a clear error, instead of hanging the request forever.
+const TX_WAIT_TIMEOUT_MS = 60_000; // 60s per tx (mint, then transfer)
+// ─────────────────────────────────────────────────────────────────────────────
 
 const LLT_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
@@ -73,6 +63,76 @@ try {
   console.error('Failed to initialize blockchain service:', error.message);
 }
 
+// ─── PATCH: helper to race a promise against a timeout ──────────────────────
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms — RPC likely never accepted/propagated this tx`)),
+      ms
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+// ─── PATCH: send a contract tx safely ────────────────────────────────────────
+// This wraps a single "simulate -> send -> verify accepted -> wait" flow so
+// both mint() and transfer() get the same protection:
+//
+//   1. `callStatic` (a read-only dry run) BEFORE sending anything on-chain.
+//      If the real call would revert (e.g. backend wallet lacks MINTER_ROLE,
+//      insufficient balance, paused contract, etc.), this throws immediately
+//      with the actual revert reason — instead of silently signing and
+//      "submitting" a transaction that can never succeed.
+//   2. Explicit gasLimit instead of relying on automatic estimation, since
+//      some smaller/private-chain RPC implementations don't fully simulate
+//      execution during eth_estimateGas and can hand back a workable-looking
+//      gas figure for a call that will still fail or never be accepted.
+//   3. Immediately after submission, ask the RPC directly
+//      (`provider.getTransaction`) whether it actually has the tx — if the
+//      node has no record of the hash it just gave us, that's the RPC
+//      silently failing to accept/broadcast it, and we fail fast instead of
+//      hanging on `.wait()`.
+//   4. `.wait()` is time-boxed so a stalled network reports a clear timeout
+//      error rather than hanging the request indefinitely.
+async function sendContractTx(methodName, args, label) {
+  // 1. Dry-run first — surfaces revert reasons (e.g. missing MINTER_ROLE)
+  //    before we ever sign/broadcast anything.
+  try {
+    await contract[methodName].staticCall(...args);
+  } catch (simError) {
+    throw new Error(
+      `${label} would revert on-chain: ${simError.reason || simError.shortMessage || simError.message}`
+    );
+  }
+
+  // 2. Explicit gas limit — don't trust auto-estimation on this network.
+  //    Adjust this figure if your contract's mint/transfer genuinely needs
+  //    more gas; better to hardcode too much than silently under-estimate.
+  const overrides = { gasLimit: 200_000n };
+
+  const tx = await contract[methodName](...args, overrides);
+  console.log(`${label} tx submitted:`, tx.hash);
+
+  // 3. Confirm the RPC node actually has this transaction before waiting.
+  //    A null result here means the node handed us a hash but never
+  //    accepted the tx into its own mempool — the exact "hash exists
+  //    locally but explorer never sees it" symptom.
+  const seenByNode = await provider.getTransaction(tx.hash);
+  if (!seenByNode) {
+    throw new Error(
+      `${label} tx ${tx.hash} was signed but the RPC node has no record of it — ` +
+      `it was never accepted into the mempool. Check RPC_URL/CHAIN_ID configuration.`
+    );
+  }
+
+  // 4. Wait for confirmation, but don't hang forever.
+  const receipt = await withTimeout(tx.wait(1), TX_WAIT_TIMEOUT_MS, `${label} confirmation`);
+  console.log(`${label} confirmed:`, tx.hash);
+
+  return { tx, receipt };
+}
+
 /**
  * Mints LLT tokens and transfers them to the user's wallet.
  *
@@ -101,16 +161,15 @@ async function sendTokensOnChain(toAddress, amountCoins) {
 
     // Mint tokens to backend wallet first
     console.log('Minting tokens...');
-    const mintTx = await contract.mint(signer.address, amountTokens);
-    console.log('Mint tx submitted:', mintTx.hash);  
-    await mintTx.wait(1);
-    console.log('Mint confirmed:', mintTx.hash);
+    const { tx: mintTx } = await sendContractTx('mint', [signer.address, amountTokens], 'Mint');
 
     // Transfer from backend wallet to user
     console.log('Transferring to user...');
-    const transferTx = await contract.transfer(toAddress, amountTokens);
-    const transferReceipt = await transferTx.wait(1);
-    console.log('Transfer confirmed:', transferTx.hash);
+    const { tx: transferTx, receipt: transferReceipt } = await sendContractTx(
+      'transfer',
+      [toAddress, amountTokens],
+      'Transfer'
+    );
 
     return {
       success: true,
