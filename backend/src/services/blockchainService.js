@@ -28,18 +28,35 @@ const RPC_URL = process.env.RPC_URL;
 const BACKEND_PRIVATE_KEY = process.env.BACKEND_PRIVATE_KEY;
 const LLT_CONTRACT_ADDRESS = process.env.LLT_CONTRACT_ADDRESS;
 
-// ─── PATCH: timeouts / retry tuning ─────────────────────────────────────────
-// How long to wait for the RPC to confirm a tx before giving up and
-// reporting a clear error, instead of hanging the request forever.
-const TX_WAIT_TIMEOUT_MS = 60_000; // 60s per tx (mint, then transfer)
-// ─────────────────────────────────────────────────────────────────────────────
-
 const LLT_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
   "function balanceOf(address account) view returns (uint256)",
   "function decimals() view returns (uint8)",
   "function mint(address to, uint256 amount)",
+  "function owner() view returns (address)",
 ];
+
+// ─── Retry helper for transient RPC flakiness ──────────────────────────────
+// This private/custom network occasionally drops a signed transaction
+// without erroring cleanly (ethers reports "signed but RPC has no record
+// of it"). Retrying with backoff rides out that kind of transient hiccup
+// instead of hanging forever or failing a withdrawal that would have
+// succeeded on the next attempt.
+async function sendWithRetry(txPromiseFactory, maxAttempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const tx = await txPromiseFactory();
+      const receipt = await tx.wait(1);
+      return { tx, receipt };
+    } catch (error) {
+      lastError = error;
+      console.log(`Attempt ${attempt} failed: ${error.message}. Retrying...`);
+      await new Promise(r => setTimeout(r, 2000 * attempt)); // backoff: 2s, 4s, 6s
+    }
+  }
+  throw lastError;
+}
 
 // Validate env vars on startup
 const REQUIRED_ENV = ['RPC_URL', 'BACKEND_PRIVATE_KEY', 'LLT_CONTRACT_ADDRESS'];
@@ -61,76 +78,6 @@ try {
   console.log('   Contract:', LLT_CONTRACT_ADDRESS);
 } catch (error) {
   console.error('Failed to initialize blockchain service:', error.message);
-}
-
-// ─── PATCH: helper to race a promise against a timeout ──────────────────────
-function withTimeout(promise, ms, label) {
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`${label} timed out after ${ms}ms — RPC likely never accepted/propagated this tx`)),
-      ms
-    );
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-// ─── PATCH: send a contract tx safely ────────────────────────────────────────
-// This wraps a single "simulate -> send -> verify accepted -> wait" flow so
-// both mint() and transfer() get the same protection:
-//
-//   1. `callStatic` (a read-only dry run) BEFORE sending anything on-chain.
-//      If the real call would revert (e.g. backend wallet lacks MINTER_ROLE,
-//      insufficient balance, paused contract, etc.), this throws immediately
-//      with the actual revert reason — instead of silently signing and
-//      "submitting" a transaction that can never succeed.
-//   2. Explicit gasLimit instead of relying on automatic estimation, since
-//      some smaller/private-chain RPC implementations don't fully simulate
-//      execution during eth_estimateGas and can hand back a workable-looking
-//      gas figure for a call that will still fail or never be accepted.
-//   3. Immediately after submission, ask the RPC directly
-//      (`provider.getTransaction`) whether it actually has the tx — if the
-//      node has no record of the hash it just gave us, that's the RPC
-//      silently failing to accept/broadcast it, and we fail fast instead of
-//      hanging on `.wait()`.
-//   4. `.wait()` is time-boxed so a stalled network reports a clear timeout
-//      error rather than hanging the request indefinitely.
-async function sendContractTx(methodName, args, label) {
-  // 1. Dry-run first — surfaces revert reasons (e.g. missing MINTER_ROLE)
-  //    before we ever sign/broadcast anything.
-  try {
-    await contract[methodName].staticCall(...args);
-  } catch (simError) {
-    throw new Error(
-      `${label} would revert on-chain: ${simError.reason || simError.shortMessage || simError.message}`
-    );
-  }
-
-  // 2. Explicit gas limit — don't trust auto-estimation on this network.
-  //    Adjust this figure if your contract's mint/transfer genuinely needs
-  //    more gas; better to hardcode too much than silently under-estimate.
-  const overrides = { gasLimit: 200_000n };
-
-  const tx = await contract[methodName](...args, overrides);
-  console.log(`${label} tx submitted:`, tx.hash);
-
-  // 3. Confirm the RPC node actually has this transaction before waiting.
-  //    A null result here means the node handed us a hash but never
-  //    accepted the tx into its own mempool — the exact "hash exists
-  //    locally but explorer never sees it" symptom.
-  const seenByNode = await provider.getTransaction(tx.hash);
-  if (!seenByNode) {
-    throw new Error(
-      `${label} tx ${tx.hash} was signed but the RPC node has no record of it — ` +
-      `it was never accepted into the mempool. Check RPC_URL/CHAIN_ID configuration.`
-    );
-  }
-
-  // 4. Wait for confirmation, but don't hang forever.
-  const receipt = await withTimeout(tx.wait(1), TX_WAIT_TIMEOUT_MS, `${label} confirmation`);
-  console.log(`${label} confirmed:`, tx.hash);
-
-  return { tx, receipt };
 }
 
 /**
@@ -161,15 +108,17 @@ async function sendTokensOnChain(toAddress, amountCoins) {
 
     // Mint tokens to backend wallet first
     console.log('Minting tokens...');
-    const { tx: mintTx } = await sendContractTx('mint', [signer.address, amountTokens], 'Mint');
+    const { tx: mintTx } = await sendWithRetry(() =>
+      contract.mint(signer.address, amountTokens)
+    );
+    console.log('Mint confirmed:', mintTx.hash);
 
     // Transfer from backend wallet to user
     console.log('Transferring to user...');
-    const { tx: transferTx, receipt: transferReceipt } = await sendContractTx(
-      'transfer',
-      [toAddress, amountTokens],
-      'Transfer'
+    const { tx: transferTx, receipt: transferReceipt } = await sendWithRetry(() =>
+      contract.transfer(toAddress, amountTokens)
     );
+    console.log('Transfer confirmed:', transferTx.hash);
 
     return {
       success: true,
