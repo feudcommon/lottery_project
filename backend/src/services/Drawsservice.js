@@ -18,8 +18,16 @@ function getDrawHistory(days = 7) {
  * Get today's draw
  */
 function getTodaysDraw() {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  
+  // ─── PATCH ──────────────────────────────────────────────────────────────
+  // Was: new Date().toISOString().slice(0, 10) — always UTC, regardless of
+  // CRON_TIMEZONE. That disagreed with the Asia/Kolkata-scheduled cron jobs
+  // for ~5.5 hours around midnight IST. Use the same timezone-aware helper
+  // pattern as ticketService.todayDateString() so all "today" calculations
+  // agree across the app.
+  // ───────────────────────────────────────────────────────────────────────
+  const tz = process.env.CRON_TIMEZONE || "UTC";
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: tz }); // 'YYYY-MM-DD' in configured tz
+
   const draw = db.prepare(`
     SELECT * FROM draws 
     WHERE draw_date = ?

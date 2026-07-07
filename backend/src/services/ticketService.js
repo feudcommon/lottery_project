@@ -7,12 +7,35 @@ const config = require("../config");
 const { AppError } = require("../middleware/errorHandler");
 const { markReferralActiveIfNeeded } = require("./userService");
 
+// ─── PATCH ──────────────────────────────────────────────────────────────────
+// Previously this used `new Date().toISOString().slice(0, 10)`, which always
+// returns the date in UTC — regardless of what timezone the rest of the app
+// (and the cron schedules) are configured for. That mismatch caused a ~5.5
+// hour window around midnight IST where "today" here disagreed with "today"
+// as understood by the Asia/Kolkata-scheduled cron jobs, leading to missing
+// draw rows and failed draws.
+//
+// `toLocaleDateString("en-CA", { timeZone })` returns YYYY-MM-DD format
+// (en-CA locale happens to format dates that way) while actually respecting
+// the timezone option, which `toISOString()` has no way to do.
+// ────────────────────────────────────────────────────────────────────────────
 function todayDateString() {
-  return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  const tz = process.env.CRON_TIMEZONE || "UTC";
+  return new Date().toLocaleDateString("en-CA", { timeZone: tz }); // 'YYYY-MM-DD' in configured tz
 }
 
 function getCurrentHour() {
-  return new Date().getHours();
+  const tz = process.env.CRON_TIMEZONE || "UTC";
+  // Get the hour-of-day in the configured timezone, not the server's local hour.
+  const hourStr = new Date().toLocaleString("en-US", {
+    timeZone: tz,
+    hour: "2-digit",
+    hour12: false,
+  });
+  // toLocaleString with hour12:false can return "24" for midnight in some
+  // environments — normalize that to 0.
+  const hour = parseInt(hourStr, 10);
+  return hour === 24 ? 0 : hour;
 }
 
 function isSalesOpen() {
@@ -87,7 +110,7 @@ const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber
     throw new AppError("Sold out — all tickets for today are gone.", 400);
   }
 
-  // 6. ✅ NEW: Use the desired slot number instead of auto-finding
+  // 6. ✅ Use the desired slot number instead of auto-finding
   const soldNumbers = new Set(
     db
       .prepare("SELECT ticket_number FROM tickets WHERE draw_date = ?")
@@ -133,7 +156,7 @@ const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber
   };
 });
 
-// ✅ UPDATE: Pass slotNumber to transaction
+// ✅ Pass slotNumber to transaction
 function buyTicket(userId, drawDate, slotNumber) {
   const date = drawDate || todayDateString();
   const ticket = buyTicketTransaction(userId, date, slotNumber);

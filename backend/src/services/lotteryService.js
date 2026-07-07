@@ -3,12 +3,28 @@ const db = require("../db/connection");
 const config = require("../config");
 const { AppError } = require("../middleware/errorHandler");
 
+// ─── PATCH ──────────────────────────────────────────────────────────────────
+// Previously, if a day had zero ticket sales, no `draws` row ever got
+// created (buyTicketTransaction is the only other place that creates one,
+// and it never runs when nobody buys a ticket). closeSalesAndCommitSeed used
+// to just warn and return null in that case, leaving nothing for runDraw to
+// operate on a few hours later — which then threw "No draw found" and
+// crashed that day's draw cron job.
+//
+// Fix: create the row here too (status 'open') before proceeding, so a
+// zero-ticket day still gets closed and drawn cleanly (runDraw already
+// handles the tickets.length === 0 case fine — it marks the draw 'drawn'
+// with winner: null).
+// ────────────────────────────────────────────────────────────────────────────
 function closeSalesAndCommitSeed(drawDate) {
-  const draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+  let draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+
   if (!draw) {
-    console.warn(`No draw row for ${drawDate} — nothing to close (zero tickets sold today?)`);
-    return null;
+    db.prepare("INSERT INTO draws (draw_date, status) VALUES (?, 'open')").run(drawDate);
+    draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+    console.log(`[Lottery] No tickets sold for ${drawDate} — created empty draw row so it can still be closed/drawn.`);
   }
+
   if (draw.status !== "open") {
     console.warn(`Draw ${drawDate} already closed/drawn, skipping.`);
     return draw;
@@ -136,5 +152,5 @@ module.exports = {
   runDraw,
   verifyDrawFairness,
   getDraw,
-  getDrawHistory,  // ✅ ADD THIS
+  getDrawHistory,
 };
