@@ -290,8 +290,3 @@ Explorer: `https://explorer.securechain.ai`
 
 ---
 
-## License
-
-This project is open source. See LICENSE file for details.
-
----
