@@ -28,17 +28,17 @@ export default function Draws() {
   }, []);
 
   const handleVerify = async (date: string) => {
-    setVerifyLoading(true);
-    try {
-      const response = await api.get(`/api/draws/${date}/verify`);
-      alert(response.data.verified ? 'Draw is fair!' : 'Draw verification failed');
-    } catch (error) {
-      console.error('Verification failed:', error);
-    } finally {
-      setVerifyLoading(false);
-    }
-  };
-
+  setVerifyLoading(true);
+  try {
+    const response = await api.get(`/api/draws/${date}/verify`);
+    const { hashMatches, matchesRecordedWinner } = response.data;
+    alert(hashMatches && matchesRecordedWinner ? 'Draw is fair!' : 'Draw verification failed');
+  } catch (error) {
+    console.error('Verification failed:', error);
+  } finally {
+    setVerifyLoading(false);
+  }
+};
   return (
     <div style={{
       minHeight: '100vh',
