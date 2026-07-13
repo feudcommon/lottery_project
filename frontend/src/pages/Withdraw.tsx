@@ -335,12 +335,41 @@ export default function Withdraw() {
                 <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#f59e0b', marginBottom: '0.5rem' }}>
                   Not Quite There Yet
                 </div>
-                <div style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '1rem' }}>
-                  You need {minCoins - coins} more coins to withdraw.
-                </div>
-                <div style={{ fontSize: '11px', color: '#a0aec0', background: 'rgba(0, 0, 0, 0.2)', padding: '0.5rem', borderRadius: '6px' }}>
-                   Keep playing daily spins and buying tickets to reach {minCoins} coins!
-                </div>
+                <div
+  style={{
+    fontSize: '12px',
+    color: '#a0aec0',
+    marginBottom: '1rem',
+    lineHeight: '1.8',
+  }}
+>
+  {coins >= minCoins ? '✅' : '❌'} Coins: {coins} / {minCoins}
+  <br />
+  {eligibility.referralCount >= 5 ? '✅' : '❌'} Referrals:{' '}
+  {eligibility.referralCount} / 5
+</div>
+
+<div
+  style={{
+    fontSize: '11px',
+    color: '#a0aec0',
+    background: 'rgba(0, 0, 0, 0.2)',
+    padding: '0.75rem',
+    borderRadius: '6px',
+  }}
+>
+  {coins < minCoins && eligibility.referralCount < 5
+    ? `You need ${minCoins - coins} more coins and ${
+        5 - eligibility.referralCount
+      } more referrals to withdraw.`
+    : coins < minCoins
+    ? `You need ${minCoins - coins} more coins to withdraw.`
+    : eligibility.referralCount < 5
+    ? `You need ${
+        5 - eligibility.referralCount
+      } more referrals to unlock withdrawals.`
+    : 'You meet all withdrawal requirements.'}
+</div>
               </div>
             )}
 
