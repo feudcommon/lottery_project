@@ -43,7 +43,7 @@ const spinTransaction = db.transaction((userId) => {
     ? `${hours}h ${minutes}m`
     : `${minutes} minute(s)`;
 
-  throw new AppError(`Next spin available in ${remainingLabel}.`, 429);
+  throw new AppError(`Next spin available in ${hours}h ${minutes}m.`, 429);
 }
   }
 
