@@ -35,9 +35,16 @@ const spinTransaction = db.transaction((userId) => {
   if (user.last_spin_at) {
     const elapsedMinutes = (now - new Date(user.last_spin_at)) / 60000;
     if (elapsedMinutes < config.game.spinCooldownMinutes) {
-      const remaining = Math.ceil(config.game.spinCooldownMinutes - elapsedMinutes);
-      throw new AppError(`Next spin available in ${remaining} minute(s).`, 429);
-    }
+  const remainingMinutes = Math.ceil(config.game.spinCooldownMinutes - elapsedMinutes);
+  const hours = Math.floor(remainingMinutes / 60);
+  const minutes = remainingMinutes % 60;
+
+  const remainingLabel = hours > 0
+    ? `${hours}h ${minutes}m`
+    : `${minutes} minute(s)`;
+
+  throw new AppError(`Next spin available in ${remainingLabel}.`, 429);
+}
   }
 
   // Daily cap check
