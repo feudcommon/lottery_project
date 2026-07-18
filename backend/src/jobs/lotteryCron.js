@@ -24,6 +24,7 @@ const config = require("../config");
 const ticketService = require("../services/ticketService");
 const lotteryService = require("../services/lotteryService");
 const db = require("../db/connection");
+const jackpotService = require("../services/jackpotService");
 
 // Set this to your target timezone, e.g. "Asia/Kolkata", "America/New_York".
 // Leaving it unset means "use the server's local timezone".
@@ -89,6 +90,37 @@ function startLotteryCronJobs() {
       TIMEZONE ? ` (${TIMEZONE})` : " (server local time)"
     }`
   );
+
+// --- Close jackpot week & commit seed: Sunday at drawHour ---
+cron.schedule(
+  `0 ${config.game.drawHour} * * 0`, // Sunday
+  () => {
+    const { weekStart } = jackpotService.getWeekBounds();
+    console.log(`[CRON] Closing jackpot week ${weekStart}`);
+    try {
+      jackpotService.closeWeekAndCommitSeed(weekStart);
+    } catch (err) {
+      console.error("[CRON] Failed to close jackpot week:", err);
+    }
+  },
+  cronOptions()
+);
+
+// --- Run jackpot draw: Sunday, 30 min after close, giving a reveal gap ---
+cron.schedule(
+  `30 ${config.game.drawHour} * * 0`,
+  () => {
+    const { weekStart } = jackpotService.getWeekBounds();
+    console.log(`[CRON] Running jackpot draw for week ${weekStart}`);
+    try {
+      const result = jackpotService.runJackpotDraw(weekStart);
+      console.log("[CRON] Jackpot result:", result);
+    } catch (err) {
+      console.error("[CRON] Failed to run jackpot draw:", err);
+    }
+  },
+  cronOptions()
+);
 }
 
 module.exports = { startLotteryCronJobs };

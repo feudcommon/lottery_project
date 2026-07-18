@@ -138,7 +138,12 @@ const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber
     VALUES (?, ?, ?, ?)
   `);
   const result = insertTicket.run(userId, drawDate, ticketNumber, config.game.ticketPrice);
-
+    // 8b. Feed a slice of the platform fee into this week's jackpot pool
+const jackpotService = require("./jackpotService");
+const jackpotContribution = Math.floor(config.game.platformFee * config.game.jackpotContributionRate);
+if (jackpotContribution > 0) {
+  jackpotService.contributeToJackpot(jackpotContribution);
+}
   // 9. Log the transaction for auditability
   db.prepare(`
     INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)

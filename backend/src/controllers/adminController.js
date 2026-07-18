@@ -80,6 +80,18 @@ const verifyDraw = asyncHandler(async (req, res) => {
   const result = lotteryService.verifyDrawFairness(date);
   res.json(result);
 });
+const jackpotService = require("../services/jackpotService");
+
+const closeJackpot = asyncHandler(async (req, res) => {
+  const result = jackpotService.closeWeekAndCommitSeed(req.params.weekStart);
+  res.json({ message: "Jackpot week closed", jackpot: result });
+});
+
+const forceJackpotDraw = asyncHandler(async (req, res) => {
+  const result = jackpotService.runJackpotDraw(req.params.weekStart);
+  res.json({ message: "Jackpot draw executed", result });
+});
+
 
 module.exports = {
   listUsers,
@@ -89,4 +101,6 @@ module.exports = {
   rejectWithdrawal,
   forceDraw,
   verifyDraw,
+  closeJackpot,
+  forceJackpotDraw,
 };

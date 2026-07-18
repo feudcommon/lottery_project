@@ -9,6 +9,8 @@ import Tickets from './pages/Tickets.tsx';
 import Draws from './pages/Draws.tsx';
 import Withdraw from './pages/Withdraw.tsx';
 import Profile from './pages/Profile.tsx';
+import Leaderboard from './pages/Leaderboard.tsx';
+import Jackpot from './pages/Jackpot.tsx';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useUserStore();
@@ -33,6 +35,8 @@ export default function App() {
         <Route path="/withdraw" element={<ProtectedRoute><Withdraw /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+        <Route path="/jackpot" element={<ProtectedRoute><Jackpot /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

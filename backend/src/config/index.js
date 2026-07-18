@@ -35,6 +35,7 @@ module.exports = {
     spinRewardMin: parseInt(process.env.SPIN_REWARD_MIN || "5", 10),
     spinRewardMax: parseInt(process.env.SPIN_REWARD_MAX || "20", 10),
     referralBonus: parseInt(process.env.REFERRAL_BONUS || "50", 10),
+    jackpotContributionRate: parseFloat(process.env.JACKPOT_CONTRIBUTION_RATE || "0.5"), // fraction of platformFee that goes to jackpot per ticket
   },
 
   withdrawal: {

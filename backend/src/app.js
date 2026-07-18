@@ -7,6 +7,7 @@
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
+const leaderboardRoutes = require("./routes/leaderboardRoutes");
 
 const { globalLimiter } = require("./middleware/rateLimiter");
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
@@ -18,6 +19,8 @@ const coinRoutes = require("./routes/coinRoutes");
 const withdrawalRoutes = require("./routes/withdrawalRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const drawRoutes = require("./routes/drawRoutes");
+const jackpotRoutes = require("./routes/jackpotRoutes");
+
 
 function createApp() {
   const app = express();
@@ -46,6 +49,8 @@ app.set('trust proxy', 1); // ← ADD THIS
   // --- 404 + error handlers (MUST be registered last) ---
   app.use(notFoundHandler);
   app.use(errorHandler);
+  app.use("/api/leaderboard", leaderboardRoutes);
+  app.use("/api/jackpot", jackpotRoutes);
 
   return app;
 }

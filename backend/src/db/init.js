@@ -101,6 +101,23 @@ CREATE TABLE IF NOT EXISTS coin_transactions (
 CREATE INDEX IF NOT EXISTS idx_tickets_user_date ON tickets(user_id, draw_date);
 CREATE INDEX IF NOT EXISTS idx_tickets_draw_date ON tickets(draw_date);
 CREATE INDEX IF NOT EXISTS idx_coin_tx_user ON coin_transactions(user_id);
+
+
+CREATE TABLE IF NOT EXISTS jackpots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  week_start TEXT UNIQUE NOT NULL,   -- 'YYYY-MM-DD', Monday of that week
+  week_end TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',  -- open | closed | drawn
+  pool_amount INTEGER NOT NULL DEFAULT 0,
+  winner_user_id INTEGER,
+  random_seed TEXT,
+  server_seed_hash TEXT,
+  closed_at TEXT,
+  drawn_at TEXT,
+  FOREIGN KEY (winner_user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_jackpots_week ON jackpots(week_start);
 `);
 
 console.log(`✅ Database initialized at: ${DB_PATH}`);
