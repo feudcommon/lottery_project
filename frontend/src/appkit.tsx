@@ -5,7 +5,7 @@ import { defineChain } from 'viem';
 const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
 export const isWalletConnectionAvailable = Boolean(projectId);
 
-const scai = defineChain({
+export const scai = defineChain({
   id: Number(import.meta.env.VITE_CHAIN_ID || '34'),
   name: 'SCAI Mainnet',
   nativeCurrency: {
@@ -35,6 +35,7 @@ if (projectId) {
   createAppKit({
     adapters: [new EthersAdapter()],
     networks: [scai],
+    defaultNetwork: scai,
     projectId,
     metadata: {
       name: 'SCAI Lucky Loop',

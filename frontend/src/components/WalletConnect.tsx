@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
-import { AppKitButton, useAppKitAccount } from '@reown/appkit/react';
-import { isWalletConnectionAvailable } from '../appkit';
+import {
+  AppKitButton,
+  useAppKitAccount,
+  useAppKitNetwork,
+} from '@reown/appkit/react';
+import { isWalletConnectionAvailable, scai } from '../appkit';
 
 type WalletConnectProps = {
   onAddress: (address: string) => void;
@@ -19,10 +23,19 @@ export default function WalletConnect({
   }
 
   const { address } = useAppKitAccount();
+  const { chainId, switchNetwork } = useAppKitNetwork();
 
   useEffect(() => {
     if (address) onAddress(address);
   }, [address, onAddress]);
+
+  useEffect(() => {
+    if (!address || Number(chainId) === scai.id) return;
+
+    switchNetwork(scai).catch((error) => {
+      console.error('Unable to switch wallet to SCAI Mainnet:', error);
+    });
+  }, [address, chainId, switchNetwork]);
 
   return <AppKitButton />;
 }
