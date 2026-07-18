@@ -45,12 +45,12 @@ app.set('trust proxy', 1); // ← ADD THIS
   app.use("/api/draws", drawRoutes);
   app.use("/api", coinRoutes);    // POST /api/spin
   app.use("/api", ticketRoutes);  // POST /api/buy-ticket, GET /api/tickets/today
+  app.use("/api/leaderboard", leaderboardRoutes);
+  app.use("/api/jackpot", jackpotRoutes);
 
   // --- 404 + error handlers (MUST be registered last) ---
   app.use(notFoundHandler);
   app.use(errorHandler);
-  app.use("/api/leaderboard", leaderboardRoutes);
-  app.use("/api/jackpot", jackpotRoutes);
 
   return app;
 }
