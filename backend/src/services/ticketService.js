@@ -6,6 +6,7 @@ const db = require("../db/connection");          // ✅ IMPORT DB FIRST
 const config = require("../config");
 const { AppError } = require("../middleware/errorHandler");
 const { markReferralActiveIfNeeded } = require("./userService");
+const jackpotService = require("./jackpotService");
 
 // ─── PATCH ──────────────────────────────────────────────────────────────────
 // Previously this used `new Date().toISOString().slice(0, 10)`, which always
@@ -139,7 +140,7 @@ const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber
   `);
   const result = insertTicket.run(userId, drawDate, ticketNumber, config.game.ticketPrice);
     // 8b. Feed a slice of the platform fee into this week's jackpot pool
-const jackpotService = require("./jackpotService");
+
 const jackpotContribution = Math.floor(config.game.platformFee * config.game.jackpotContributionRate);
 if (jackpotContribution > 0) {
   jackpotService.contributeToJackpot(jackpotContribution);
