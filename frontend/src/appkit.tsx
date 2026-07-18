@@ -1,17 +1,15 @@
-import React from 'react';
 import { createAppKit } from '@reown/appkit/react';
-import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { WagmiProvider } from 'wagmi';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { EthersAdapter } from '@reown/appkit-adapter-ethers';
 import { defineChain } from 'viem';
 
-const projectId = process.env.REACT_APP_REOWN_PROJECT_ID!;
+const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
+
 if (!projectId) {
-  throw new Error('Missing REACT_APP_REOWN_PROJECT_ID');
+  throw new Error('Missing VITE_REOWN_PROJECT_ID environment variable.');
 }
 
 const scai = defineChain({
-  id: 34,
+  id: Number(import.meta.env.VITE_CHAIN_ID || '34'),
   name: 'SCAI Mainnet',
   nativeCurrency: {
     name: 'SCAI',
@@ -20,42 +18,33 @@ const scai = defineChain({
   },
   rpcUrls: {
     default: {
-      http: ['https://mainnet-rpc.scai.network'],
+      http: [
+        import.meta.env.VITE_RPC_URL ||
+          'https://mainnet-rpc.scai.network',
+      ],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'SCAI Explorer',
+      url:
+        import.meta.env.VITE_EXPLORER_URL ||
+        'https://explorer.securechain.ai',
     },
   },
 });
 
-const metadata = {
-  name: 'SCAI Lucky Loop',
-  description: 'SCAI Lucky Loop wallet connection',
-  url: 'https://your-real-domain.com', // Must match your Reown Dashboard domain
-  icons: ['https://your-real-domain.com/logo192.png'],
-};
-
-const networks = [scai];
-const wagmiAdapter = new WagmiAdapter({ networks, projectId });
-const queryClient = new QueryClient();
-
 createAppKit({
-  adapters: [wagmiAdapter],
-  networks,
+  adapters: [new EthersAdapter()],
+  networks: [scai],
   projectId,
-  metadata,
+  metadata: {
+    name: 'SCAI Lucky Loop',
+    description: 'SCAI Lucky Loop wallet connection',
+    url: 'https://your-vercel-domain.vercel.app',
+    icons: ['https://your-vercel-domain.vercel.app/logo192.png'],
+  },
   features: {
     analytics: false,
   },
 });
-
-export function AppKitProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    </WagmiProvider>
-  );
-}
