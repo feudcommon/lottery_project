@@ -115,9 +115,9 @@ export default function Home() {
             { label:'Buy Tickets', href:'/tickets', color:'#7c3aed' },
             { label:'Results', href:'/draws', color:'#9333ea' },
             { label:'Withdraw', href:'/withdraw', color:'#c026d3' },
+            { label:'Leaderboard', href:'/leaderboard', color:'#c026d3' },
+            { label:'Jackpot', href:'/jackpot', color:'#9333ea' },
             { label:'Profile', href:'/profile', color:'rgba(255,255,255,0.08)' },
-            { label:'Leaderboard', href:'/leaderboard', color:'rgba(255,255,255,0.08)' },
-            { label:'Jackpot', href:'/jackpot', color:'#c026d3' },
           ].map((item) => (
             <a key={item.href} href={item.href} style={{
               display:'block',padding:'1rem',borderRadius:16,textAlign:'center',
