@@ -160,9 +160,9 @@ lottery_project/
 ### Daily Flow
 
 1. 9 AM IST - User claims daily spin reward (+5-50 coins)
-2. 9 AM - 10 PM IST - Buy lottery tickets (10 coins each)
-3. 10 PM IST - Automated sales close, seed committed
-4. 11 PM IST - Draw runs, winner selected, coins awarded
+2. 9 AM - 3 PM IST - Buy lottery tickets (10 coins each)
+3. 3 PM IST - Automated sales close, seed committed
+4. 6 PM IST - Draw runs, winner selected, coins awarded
 5. Anytime - Withdraw 500+ coins as LLT tokens
 
 ### Referral System
@@ -175,8 +175,8 @@ lottery_project/
 
 The draw uses commit-reveal to ensure fairness:
 
-1. Commit Phase (10 PM) - Server generates seed & publishes SHA-256 hash
-2. Reveal Phase (11 PM) - Actual seed revealed after draw completes
+1. Commit Phase (3 PM) - Server generates seed & publishes SHA-256 hash
+2. Reveal Phase (6 PM) - Actual seed revealed after draw completes
 3. Verification - Anyone can verify the seed matches the hash using the `/api/draws/:date/verify` endpoint
 
 ---
