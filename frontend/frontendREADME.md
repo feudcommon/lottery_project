@@ -1,77 +1,68 @@
-# SCAI Lucky Loop — Frontend
+# SCAI Lucky Loop frontend
 
-React + TypeScript Telegram Mini App for SCAI Lucky Loop — the client users interact with inside Telegram to spin for coins, buy lottery tickets, watch draws resolve, and withdraw LLT tokens.
+The frontend is a Vite + React + TypeScript Telegram Mini App. It provides the lottery interface, Telegram login flow, authenticated API access, and the optional SCAI wallet connection used when withdrawing LLT tokens.
 
-## Quick start
+## Commands
 
 ```bash
 npm install
-npm start
+npm run dev       # local Vite server
+npm run build     # production output in dist/
+npm run preview   # preview a production build
 ```
 
-Runs the dev server at [http://localhost:3000](http://localhost:3000) with hot reload. By default it talks to a backend at `http://localhost:3000` too — if you're running the backend locally, either change the backend's `PORT` or set `REACT_APP_API_URL` (see below) so the two don't collide.
+Vite normally serves the app at `http://localhost:5173`.
 
 ## Environment variables
 
-Create `frontend/.env.local` for local development:
+Create `.env.local` for development:
 
+```dotenv
+VITE_API_URL=http://localhost:3000
+VITE_RPC_URL=https://mainnet-rpc.scai.network
+VITE_CONTRACT_ADDRESS=0x290483A8fC8ed76647dA75260eb2a2594B5330a2
+VITE_CHAIN_ID=34
+VITE_EXPLORER_URL=https://explorer.securechain.ai
+VITE_REOWN_PROJECT_ID=your_reown_project_id
 ```
-REACT_APP_API_URL=http://localhost:3001   # wherever your backend is running
-```
 
-Production build uses `.env.production` (checked in with the deployed backend URL).
+Vite only exposes variables beginning with `VITE_`. Do not use legacy `REACT_APP_*` names.
 
-## Project layout
+`VITE_REOWN_PROJECT_ID` enables Reown AppKit. If it is absent, the app still loads and the wallet section reports that wallet connection is unavailable.
 
-```
+## Code layout
+
+```text
 src/
-  App.tsx                Route table + Telegram WebApp init (tg.ready()/tg.expand())
-  pages/                  One component per screen
-    Login.tsx             Telegram sign-in entry point
-    Home.tsx               Balance card, daily spin, nav grid
-    Tickets.tsx             50-slot ticket grid for today's draw
-    Draws.tsx               Draw history + commit-reveal verification UI
-    Withdraw.tsx             Eligibility check + withdrawal request form
-    Profile.tsx              User info, referral link, logout
-  hooks/                  Data-fetching hooks, one per concern
-    useAuth.ts              Telegram login flow
-    useBalance.ts            Polls /api/user/me for live coin balance
-    useTickets.ts / useWithdraw.ts / useDraws.ts
-  store/
-    userStore.ts            Zustand store — user object + JWT, persisted to localStorage
-  api/
-    client.ts                Axios instance: attaches JWT header, redirects to /login on 401
-  components/               Small reusable UI pieces (BalanceCard, Header, Loading, DrawCountdown)
+  appkit.tsx                 SCAI Mainnet AppKit configuration
+  App.tsx                    BrowserRouter and protected routes
+  api/client.ts              Axios client and JWT request/401 handling
+  components/WalletConnect.tsx
+                             Wallet modal and SCAI network switching
+  hooks/                     Feature-level API hooks
+  pages/                     Login, home, tickets, draws, withdrawal, profile
+  store/userStore.ts         Zustand user and JWT persistence
 ```
 
-## Auth flow
+## Routes and authentication
 
-1. `useAuth.loginWithTelegram()` reads `window.Telegram.WebApp.initData` (only available when actually opened inside Telegram).
-2. Posts it to `POST /api/auth/telegram`.
-3. Backend verifies the Telegram signature and returns a JWT + user profile.
-4. `userStore` persists both to `localStorage`; `api/client.ts` attaches the JWT to every subsequent request automatically.
-5. `ProtectedRoute` in `App.tsx` redirects to `/login` if there's no token; `client.ts`'s response interceptor does the same on any `401`.
+`/login` is public. The application redirects other routes to `/login` when no JWT exists in local storage. Telegram login posts the Mini App's signed `initData` to the backend, which responds with a JWT and user profile.
 
-## Available scripts
+On a `401`, the API client clears saved auth state and returns to `/login`.
 
-### `npm start`
-Development mode with hot reload; lint errors show in the console.
+## SCAI wallet behavior
 
-### `npm test`
-Launches the CRA test runner in interactive watch mode.
+AppKit uses the Ethers adapter for EVM wallets. The configured network is **SCAI Mainnet**:
 
-### `npm run build`
-Production build to `build/` — minified, hashed filenames, ready to deploy.
+- Chain ID: `34`
+- Native currency: `SCAI`
+- RPC: `https://mainnet-rpc.scai.network`
+- Explorer: `https://explorer.securechain.ai`
 
-### `npm run eject`
-One-way CRA config eject. Not used in this project — avoid unless you specifically need to hand-edit the webpack/Babel/ESLint config.
-
-## Styling
-
-Screens use inline styles directly (dark purple/magenta gradient theme) rather than Tailwind utility classes in most pages, though Tailwind is configured (`tailwind.config.js`, `postcss.config.js`) and available via `index.css`'s `@tailwind` directives for any new components.
+After wallet connection, the client requests a switch to SCAI Mainnet. The user must approve the wallet prompt. Wallet connection supplies a withdrawal recipient address; ticket purchases remain in-app coin transactions.
 
 ## Deployment
 
-Deployed on Vercel — see repo-root `vercel.json` (build command `cd frontend && npm install && npm run build`, output `frontend/build`, with headers set to allow embedding inside `web.telegram.org` / `t.me` via CSP `frame-ancestors`). Push to the connected branch and Vercel auto-builds.
+Vercel builds this directory with `npm run build` and publishes `dist/`. Configure all `VITE_*` variables in Vercel for Production and Preview, then redeploy because Vite embeds those values at build time.
 
-Make sure `REACT_APP_API_URL` in `.env.production` points at the live backend before deploying.
+The repository-level `vercel.json` includes an SPA rewrite so routes such as `/login` and `/withdraw` work on refresh and browser Back navigation.

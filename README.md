@@ -1,292 +1,150 @@
 # SCAI Lucky Loop
 
-A free-to-play daily lottery Telegram Mini App where users earn coins through daily spins, buy tickets, participate in verifiable random draws, and withdraw LLT tokens.
+SCAI Lucky Loop is a Telegram Mini App for a daily, coin-based lottery. Players authenticate with Telegram, earn in-app coins, buy ticket slots, review draw results, and withdraw eligible rewards as **LLT** tokens on **SCAI Mainnet**.
 
-Live Demo: [@ScaiLuckyLoop_bot](https://t.me/ScaiLuckyLoop_bot)
+The repository contains three deployable parts:
 
----
+| Directory | Responsibility | Deployment |
+| --- | --- | --- |
+| `frontend/` | Vite + React client and wallet connection | Vercel |
+| `backend/` | Express API, SQLite data store, jobs and withdrawals | Railway |
+| `contracts/` | LLT ERC-20 Solidity contract and Hardhat tests | SCAI Mainnet |
+
+## Current architecture
+
+```mermaid
+flowchart TD
+  U[Telegram user / browser] --> F[Vite React frontend]
+  F -->|Telegram initData| B[Express API]
+  F -->|Bearer JWT| B
+  F -->|AppKit + Ethers adapter| W[Compatible wallet]
+  W -->|SCAI Mainnet: chain ID 34| S[SCAI RPC]
+  B --> D[(SQLite)]
+  B -->|Mint / transfer LLT| S
+  S --> C[LLT ERC-20 contract]
+  V[Vercel] --> F
+  R[Railway] --> B
+```
+
+Important: tickets are currently bought with in-app coins. Connecting a wallet lets a player supply a SCAI-compatible address for LLT withdrawals; it does not yet make an on-chain SCAI payment for tickets.
 
 ## Features
 
-### User Features
-- Daily Spin Rewards - Claim free coins every 24 hours
-- Ticket System - Buy up to 2 tickets per day (10 coins each)
-- Verifiable Draws - Fair, randomness-assured daily lottery at 11 PM UTC
-- Coin Economy - Earn coins, manage balance, track transactions
-- Referral Bonuses - Invite friends for +100 coin bonus when 5+ referrals active
-- Withdrawal System - Cash out to LLT tokens (500 coins minimum)
-- Results Page - View draw history and winner announcements
-- Dark UI - Beautiful purple gradient Telegram Mini App interface
+- Telegram-authenticated account and JWT session
+- Daily coin rewards, referral tracking, ticket purchase and account history
+- Scheduled commit-reveal lottery draws
+- On-chain LLT withdrawal to a connected or manually entered EVM address
+- Reown AppKit connection flow for MetaMask, Trust Wallet, Coinbase Wallet, and WalletConnect-compatible wallets
+- SCAI Mainnet as the required/default wallet network
+- Vercel single-page-app routing, including direct links and browser Back navigation
 
-### Technical Features
-- Race-Condition Safe - SQLite transactions prevent coin duplication exploits
-- Commit-Reveal Fairness - Publicly verifiable draw using cryptographic seeds
-- Web3 Integration - ERC-20 token withdrawals to SCAI Private Network
-- JWT Authentication - Telegram sign-in integration
-- Rate Limiting - Global and per-endpoint request throttling
+## SCAI network
 
----
+| Setting | Value |
+| --- | --- |
+| Network | SCAI Mainnet |
+| Chain ID | `34` |
+| Currency | `SCAI` |
+| RPC | `https://mainnet-rpc.scai.network` |
+| Explorer | `https://explorer.securechain.ai` |
+| LLT contract | `0x290483A8fC8ed76647dA75260eb2a2594B5330a2` |
 
-## Architecture
+When a wallet reconnects, the client requests a switch to SCAI Mainnet. Approve the wallet prompt if the network has not already been added.
 
-```
-┌─────────────────────────────────────────────┐
-│         TELEGRAM MINI APP                   │
-│      (React + TypeScript Frontend)          │
-└────────────────┬────────────────────────────┘
-                 │ HTTPS
-┌────────────────▼────────────────────────────┐
-│     EXPRESS.JS BACKEND (Node.js)            │
-│   - SQLite Database                         │
-│   - JWT Auth + Rate Limiting                │
-│   - Cron Jobs (sales close, draw at 11 PM) │
-└────────────────┬────────────────────────────┘
-                 │
-        ┌────────┴─────────┐
-        │                  │
-        ▼                  ▼
-    SQLite DB         Blockchain RPC
-   (Data Store)     (LLT Token Contract)
-                    0x290483A8fC8ed76647dA75260eb2a2594B5330a2
-```
+## Run locally
 
----
+Prerequisites: Node.js 18+ and npm. Telegram sign-in itself requires opening the app through Telegram with a configured bot.
 
-## Quick Start
+1. Start the API:
 
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- Telegram account
+   ```bash
+   cd backend
+   npm install
+   cp .env.example .env
+   npm run init-db
+   npm run dev
+   ```
 
-### Installation
+2. In a second terminal, start the frontend:
 
-```bash
-# Clone repository
-git clone https://github.com/feudcommon/lottery_project.git
-cd lottery_project
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
-# Backend setup
-cd backend
-npm install
-npm start
+3. Open the local Vite URL printed by the terminal (normally `http://localhost:5173`).
 
-# Frontend setup (in new terminal)
-cd frontend
-npm install
-npm start
+## Environment variables
+
+### Frontend
+
+Create `frontend/.env.local` for local use. All browser-visible Vite values must begin with `VITE_`.
+
+```dotenv
+VITE_API_URL=http://localhost:3000
+VITE_RPC_URL=https://mainnet-rpc.scai.network
+VITE_CONTRACT_ADDRESS=0x290483A8fC8ed76647dA75260eb2a2594B5330a2
+VITE_CHAIN_ID=34
+VITE_EXPLORER_URL=https://explorer.securechain.ai
+VITE_REOWN_PROJECT_ID=your_reown_project_id
 ```
 
-### Environment Variables
+`VITE_REOWN_PROJECT_ID` is required to enable wallet connection. Without it, the rest of the app continues to load and the withdrawal screen explains that wallet setup is unavailable.
 
-**backend/.env**
-```
-PORT=3000
-NODE_ENV=production
-JWT_SECRET=your_secret_key_here
-TELEGRAM_BOT_TOKEN=your_bot_token
-DB_PATH=./data/lucky_loop.db
+### Backend
 
-# Game Config
-TICKET_PRICE=10
-MAX_TICKETS_PER_USER_PER_DAY=2
-TOTAL_TICKETS_PER_DAY=50
-WINNER_REWARD=100
-PLATFORM_FEE=100
+Copy `backend/.env.example` to `backend/.env`. At minimum set:
 
-# Schedule (IST)
-SALES_OPEN_HOUR=0
-SALES_CLOSE_HOUR=22
-DRAW_HOUR=23
-CRON_TIMEZONE=Asia/Kolkata
-
-# Blockchain
+```dotenv
+JWT_SECRET=use_a_long_random_value
+TELEGRAM_BOT_TOKEN=botfather_token
+ADMIN_TELEGRAM_IDS=comma_separated_telegram_ids
 RPC_URL=https://mainnet-rpc.scai.network
-CHAIN_ID=34
 LLT_CONTRACT_ADDRESS=0x290483A8fC8ed76647dA75260eb2a2594B5330a2
-BACKEND_PRIVATE_KEY=your_private_key
-
-# Withdrawal
-WITHDRAW_MIN_COINS=500
-WITHDRAW_MIN_REFERRALS=5
+BACKEND_PRIVATE_KEY=funded_wallet_with_LLT_mint_permission
 ```
 
-**frontend/.env.local**
-```
-REACT_APP_API_URL=https://your-backend-url.railway.app
-REACT_APP_RPC_URL=https://mainnet-rpc.scai.network
-REACT_APP_CONTRACT_ADDRESS=0x290483A8fC8ed76647dA75260eb2a2594B5330a2
-REACT_APP_CHAIN_ID=34
-REACT_APP_EXPLORER_URL=https://explorer.securechain.ai
-```
-
----
-
-## Project Structure
-
-```
-lottery_project/
-├── backend/                    # Node.js Express API
-│   ├── src/
-│   │   ├── controllers/        # Request handlers
-│   │   ├── services/           # Business logic
-│   │   ├── routes/             # API endpoints
-│   │   ├── middleware/         # Auth, rate limiting
-│   │   ├── jobs/               # Cron jobs (draws)
-│   │   └── db/                 # Database init & schema
-│   └── package.json
-│
-├── frontend/                   # React TypeScript Mini App
-│   ├── src/
-│   │   ├── pages/              # Tickets, Draws, Profile, Withdraw
-│   │   ├── components/         # Reusable UI elements
-│   │   ├── hooks/              # Custom React hooks
-│   │   ├── api/                # API client
-│   │   └── App.tsx             # Main app
-│   └── package.json
-│
-├── contracts/                  # Solidity ERC-20 Token
-│   └── LLT.sol                 # LLT Token Contract
-│
-├── Procfile                    # Railway deployment config
-├── vercel.json                 # Vercel deployment config
-└── README.md                   # This file
-```
-
----
-
-## How It Works
-
-### Daily Flow
-
-1. 9 AM IST - User claims daily spin reward (+5-50 coins)
-2. 9 AM - 3 PM IST - Buy lottery tickets (10 coins each)
-3. 3 PM IST - Automated sales close, seed committed
-4. 6 PM IST - Draw runs, winner selected, coins awarded
-5. Anytime - Withdraw 500+ coins as LLT tokens
-
-### Referral System
-
-- Share your unique referral code with friends
-- When 5+ friends become active players - Unlock +100 coin bonus
-- Bonus is optional - you can withdraw at 500 coins anytime
-
-### Fair Randomness
-
-The draw uses commit-reveal to ensure fairness:
-
-1. Commit Phase (3 PM) - Server generates seed & publishes SHA-256 hash
-2. Reveal Phase (6 PM) - Actual seed revealed after draw completes
-3. Verification - Anyone can verify the seed matches the hash using the `/api/draws/:date/verify` endpoint
-
----
-
-## API Endpoints
-
-### Auth
-- POST /api/auth/telegram - Verify Telegram user
-
-### User
-- GET /api/user/info - Get user profile
-- GET /api/user/referrals - Get referral count
-
-### Coins
-- POST /api/spin - Claim daily reward
-
-### Tickets
-- GET /api/tickets/today - Get today's tickets & balance
-- POST /api/buy-ticket - Purchase lottery ticket
-
-### Draws
-- GET /api/draws/history?days=7 - Get draw history
-- GET /api/draws/:date - Get specific draw details
-- GET /api/draws/:date/verify - Verify draw fairness
-
-### Withdrawal
-- POST /api/withdraw - Request coin withdrawal
-- GET /api/withdraw/eligibility - Check withdrawal requirements
-- GET /api/withdraw/history - Get withdrawal history
-
----
+Never commit backend secrets or private keys.
 
 ## Deployment
 
-### Frontend (Vercel)
-```bash
-cd frontend
-npm run build
-# Push to GitHub, Vercel auto-deploys
+### Frontend on Vercel
+
+`vercel.json` builds `frontend/` and publishes `frontend/dist`. It also rewrites all paths to `index.html`, which is required for React Router routes such as `/login`, `/home`, and `/withdraw`.
+
+Set these variables in Vercel for **Production** and **Preview**, then redeploy:
+
+```dotenv
+VITE_API_URL=https://lotteryproject-production.up.railway.app
+VITE_RPC_URL=https://mainnet-rpc.scai.network
+VITE_CONTRACT_ADDRESS=0x290483A8fC8ed76647dA75260eb2a2594B5330a2
+VITE_CHAIN_ID=34
+VITE_EXPLORER_URL=https://explorer.securechain.ai
+VITE_REOWN_PROJECT_ID=your_reown_project_id
 ```
 
-Live URL: [lottery-project-rouge.vercel.app/login](https://lottery-project-rouge.vercel.app/login)
+Vite substitutes these values during the build. Changing a Vercel variable requires a new deployment.
 
-### Backend (Railway)
-```bash
-# Set environment variables in Railway dashboard
-# Railway auto-detects Procfile and deploys
-git push origin main
-```
+### Backend on Railway
 
-Live URL: [lotteryproject-production.up.railway.app](https://lotteryproject-production.up.railway.app)
+Railway uses the root `Procfile` to install and start `backend/`. Configure the backend environment variables in Railway, including the database path and all secrets, before deploying.
 
-### Smart Contract (SCAI Private Network)
-Contract Address: `0x290483A8fC8ed76647dA75260eb2a2594B5330a2`
+## Development commands
 
-Network: SCAI Private Network (Chain ID: 34)
-RPC: `https://mainnet-rpc.scai.network`
-Explorer: `https://explorer.securechain.ai`
-
----
-
-## Security
-
-- Input Validation - Zod schema validation on all endpoints
-- Rate Limiting - 100 requests/hour per IP
-- JWT Auth - 7-day token expiry
-- Transaction Safety - SQLite transactions prevent race conditions
-- CORS Protected - Restricted to Telegram Mini App origin
-- Helmet.js - HTTP security headers enabled
-
----
-
-## Troubleshooting
-
-### Draw Not Running?
-- Check Railway logs for [CRON] running draw
-- Verify SALES_CLOSE_HOUR < DRAW_HOUR
-- Ensure CRON_TIMEZONE=Asia/Kolkata
-
-### Tickets Not Showing?
-- Hard refresh (Ctrl+Shift+R)
-- Check Network tab for /api/tickets/today response
-- Verify slotNumber is being sent in POST payload
-
-### Frontend Won't Load?
-- Verify REACT_APP_API_URL points to correct backend
-- Check browser console for CORS errors
-- Ensure backend is running and accessible
-
----
-
-## Technology Stack
-
-| Layer | Tech |
-|-------|------|
-| Frontend | React 18, TypeScript, Tailwind CSS |
-| Backend | Express.js, Node.js, SQLite |
-| Database | SQLite (better-sqlite3) |
-| Auth | JWT, Telegram Mini App Sign-in |
-| Blockchain | Solidity (ERC-20), ethers.js |
-| Deployment | Vercel (frontend), Railway (backend) |
-| Network | SCAI Private Network |
-
----
+| Location | Command | Purpose |
+| --- | --- | --- |
+| `frontend/` | `npm run dev` | Start the Vite development server |
+| `frontend/` | `npm run build` | Create a production build in `dist/` |
+| `frontend/` | `npm run preview` | Serve the production build locally |
+| `backend/` | `npm run dev` | Start Express with nodemon |
+| `backend/` | `npm start` | Start Express normally |
+| `backend/` | `npm run init-db` | Initialize SQLite data |
 
 ## Documentation
 
-- Backend Setup Guide: ./backend/README.md
-- Frontend Setup Guide: ./frontend/README.md
-- Smart Contract Details: ./contracts/README.md
-
----
+- [Architecture](./architecture.md) — runtime paths, trust boundaries, and operational notes
+- [Frontend notes](./frontend/frontendREADME.md) — client-specific details
+- [Backend notes](./backend/backendREADME.md) — API and service layout
+- [Contract notes](./contracts/contractsREADME.md) — LLT contract and tests
 
