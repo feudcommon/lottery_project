@@ -45,20 +45,18 @@ const approveWithdrawal = asyncHandler(async (req, res) => {
     throw new AppError("Withdrawal not found or already processed", 404);
   }
 
-  try {
-    const txHash = await blockchainService.sendTokensOnChain(
-      withdrawal.wallet_address,
-      withdrawal.token_amount
-    );
-    const updated = withdrawalService.markWithdrawalSent(withdrawalId, txHash);
-    return res.json({ message: "Tokens sent", withdrawal: updated });
-  } catch (err) {
-    // Blockchain not configured yet, or the transfer failed — leave it
-    // pending and surface a clear error rather than silently losing track
-    throw err;
-  }
-});
+  const result = await blockchainService.sendTokensOnChain(
+    withdrawal.wallet_address,
+    withdrawal.token_amount
+  );
 
+  if (!result.success) {
+    throw new AppError(`Blockchain error: ${result.error}`, 500);
+  }
+
+  const updated = withdrawalService.markWithdrawalSent(withdrawalId, result.transferHash);
+  return res.json({ message: "Tokens sent", withdrawal: updated });
+});
 // POST /api/admin/withdrawals/:id/reject
 const rejectWithdrawal = asyncHandler(async (req, res) => {
   const withdrawalId = parseInt(req.params.id, 10);
