@@ -1,14 +1,16 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserStore } from '../store/userStore';
 
 export default function Login() {
+  const navigate = useNavigate();
   const { token } = useUserStore();
   const { loginWithTelegram, isLoading, error } = useAuth();
 
   useEffect(() => {
-    if (token) window.location.href = '/home';
-  }, [token]);
+    if (token) navigate('/home', { replace: true });
+  }, [navigate, token]);
 
   return (
     <div style={{

@@ -3,10 +3,7 @@ import { EthersAdapter } from '@reown/appkit-adapter-ethers';
 import { defineChain } from 'viem';
 
 const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
-
-if (!projectId) {
-  throw new Error('Missing VITE_REOWN_PROJECT_ID environment variable.');
-}
+export const isWalletConnectionAvailable = Boolean(projectId);
 
 const scai = defineChain({
   id: Number(import.meta.env.VITE_CHAIN_ID || '34'),
@@ -34,17 +31,23 @@ const scai = defineChain({
   },
 });
 
-createAppKit({
-  adapters: [new EthersAdapter()],
-  networks: [scai],
-  projectId,
-  metadata: {
-    name: 'SCAI Lucky Loop',
-    description: 'SCAI Lucky Loop wallet connection',
-    url: 'https://your-vercel-domain.vercel.app',
-    icons: ['https://your-vercel-domain.vercel.app/logo192.png'],
-  },
-  features: {
-    analytics: false,
-  },
-});
+if (projectId) {
+  createAppKit({
+    adapters: [new EthersAdapter()],
+    networks: [scai],
+    projectId,
+    metadata: {
+      name: 'SCAI Lucky Loop',
+      description: 'SCAI Lucky Loop wallet connection',
+      url: 'https://your-vercel-domain.vercel.app',
+      icons: ['https://your-vercel-domain.vercel.app/logo192.png'],
+    },
+    features: {
+      analytics: false,
+    },
+  });
+} else {
+  console.warn(
+    'Wallet connection is disabled: VITE_REOWN_PROJECT_ID is not configured.'
+  );
+}
