@@ -11,6 +11,9 @@ import Withdraw from './pages/Withdraw.tsx';
 import Profile from './pages/Profile.tsx';
 import Leaderboard from './pages/Leaderboard.tsx';
 import Jackpot from './pages/Jackpot.tsx';
+import Landing from './pages/Landing.tsx';
+import Rules from './pages/Rules.tsx';
+import Admin from './pages/Admin.tsx';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useUserStore();
@@ -28,16 +31,20 @@ export default function App() {
     <BrowserRouter>
       {/* <Analytics /> */}
       <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/rules" element={<Rules />} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/login" element={<Login />} />
         <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/tickets" element={<ProtectedRoute><Tickets /></ProtectedRoute>} />
         <Route path="/draws" element={<ProtectedRoute><Draws /></ProtectedRoute>} />
         <Route path="/withdraw" element={<ProtectedRoute><Withdraw /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
         <Route path="/jackpot" element={<ProtectedRoute><Jackpot /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
 }
+
+

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserStore } from '../store/userStore';
+import { Link } from 'react-router-dom';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -65,6 +66,7 @@ export default function Login() {
 
       {/* Main content */}
       <div style={{ position:'relative', zIndex:2 }}>
+        <Link to="/rules" style={{ color:'#f0abfc', fontSize:12, textDecoration:'none', display:'inline-block', marginBottom:18 }}>Read Game Rules â†’</Link>
 
         {/* Eyebrow */}
         <div style={{ fontSize:11,letterSpacing:'0.2em',textTransform:'uppercase',color:'#e879f9',marginBottom:'0.5rem',display:'flex',alignItems:'center',gap:8 }}>
@@ -157,3 +159,5 @@ export default function Login() {
     </div>
   );
 }
+
+

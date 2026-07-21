@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useBalance } from '../hooks/useBalance';
 import api from '../api/client';
+import { Link } from 'react-router-dom';
 
 export default function Tickets() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export default function Tickets() {
     try {
       console.log("Buying ticket for slot:", slotNumber);
       
-      // ✅ Send slotNumber to backend
+      // âœ… Send slotNumber to backend
       const result = await api.post('/api/buy-ticket', {
         drawDate: new Date().toISOString().split('T')[0],
         slotNumber: slotNumber
@@ -140,6 +141,7 @@ export default function Tickets() {
             {coins}
           </div>
           <div style={{ fontSize: '12px', color: '#a0aec0' }}>Cost per ticket: 10 coins</div>
+          {coins < 10 && <div style={{ marginTop: 12, fontSize: '13px', color: '#f0abfc' }}>You need {10 - coins} more coins. Claim your daily reward or <Link to="/profile" style={{ color: '#fff' }}>view ways to earn coins</Link>.</div>}
         </div>
 
         {/* Error Message */}
@@ -232,3 +234,5 @@ export default function Tickets() {
     </div>
   );
 }
+
+
