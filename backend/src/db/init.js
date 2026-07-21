@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS coin_transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   amount INTEGER NOT NULL,          -- positive = credit, negative = debit
-  reason TEXT NOT NULL,             -- 'spin', 'ticket_purchase', 'referral_bonus', 'lottery_win', 'withdrawal'
+  reason TEXT NOT NULL,             -- 'spin', 'ticket_purchase', 'referral_bonus', 'lottery_win', 'withdrawal', 'onchain_deposit', 'fiat_deposit'
   reference_id INTEGER,             -- optional FK to ticket/withdrawal/draw id
   balance_after INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -101,7 +101,6 @@ CREATE TABLE IF NOT EXISTS coin_transactions (
 CREATE INDEX IF NOT EXISTS idx_tickets_user_date ON tickets(user_id, draw_date);
 CREATE INDEX IF NOT EXISTS idx_tickets_draw_date ON tickets(draw_date);
 CREATE INDEX IF NOT EXISTS idx_coin_tx_user ON coin_transactions(user_id);
-
 
 CREATE TABLE IF NOT EXISTS jackpots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,7 +117,7 @@ CREATE TABLE IF NOT EXISTS jackpots (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jackpots_week ON jackpots(week_start);
-`);
+
 CREATE TABLE IF NOT EXISTS onchain_deposits (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -130,6 +129,26 @@ CREATE TABLE IF NOT EXISTS onchain_deposits (
 );
 
 CREATE INDEX IF NOT EXISTS idx_onchain_deposits_user ON onchain_deposits(user_id);
+
+-- NEW: fiat (Stripe) deposits. One row per checkout session; a session only
+-- ever credits coins once (see stripeService.creditFiatDeposit), keyed on
+-- the UNIQUE stripe_session_id so a duplicated/replayed webhook is a no-op.
+CREATE TABLE IF NOT EXISTS fiat_deposits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  stripe_session_id TEXT NOT NULL UNIQUE,
+  stripe_payment_intent_id TEXT,
+  amount_usd_cents INTEGER NOT NULL,
+  coins_credited INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending | completed | failed | expired
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_fiat_deposits_user ON fiat_deposits(user_id);
+CREATE INDEX IF NOT EXISTS idx_fiat_deposits_status ON fiat_deposits(status);
+`);
 
 console.log(`✅ Database initialized at: ${DB_PATH}`);
 db.close();

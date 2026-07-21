@@ -1,66 +1,95 @@
-import { useState } from 'react';
-import { BrowserProvider, parseEther } from 'ethers';
-import api from '../api/client';
+// src/services/depositService.js
+//
+// BUGFIX NOTE: this file previously contained frontend React/TypeScript code
+// (the useDeposit hook) instead of backend logic. Since app.js requires
+// depositRoutes -> depositController -> depositService at boot, the old
+// content (`import`/`export`, JSX-flavored TS) threw a SyntaxError under
+// CommonJS `require()` and crashed the server before it could start.
+// This is the actual backend implementation the controller expects:
+// getTreasuryAddress(), creditScaiDeposit(userId, txHash), getMyDeposits(userId).
 
-export const useDeposit = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const { ethers } = require("ethers");
+const db = require("../db/connection");
+const config = require("../config");
+const { AppError } = require("../middleware/errorHandler");
 
-  // Step 1: get treasury address + rate from the backend
-  const getDepositInfo = async () => {
-    const response = await api.get('/api/deposit/info');
-    return response.data as { treasuryAddress: string; scaiToCoinsRate: number };
+const TREASURY_ADDRESS = process.env.TREASURY_ADDRESS;
+const RPC_URL = process.env.RPC_URL;
+const SCAI_TO_COINS_RATE = parseInt(process.env.SCAI_TO_COINS_RATE || "100", 10); // 1 SCAI = 100 coins
+
+function getTreasuryAddress() {
+  if (!TREASURY_ADDRESS) {
+    throw new AppError("Deposits are not configured (missing TREASURY_ADDRESS).", 503);
+  }
+  return {
+    treasuryAddress: TREASURY_ADDRESS,
+    scaiToCoinsRate: SCAI_TO_COINS_RATE,
   };
+}
 
-  // Step 2: ask the connected wallet to send native SCAI to the treasury
-  const sendScai = async (amountScai: number) => {
-    if (!window.ethereum) {
-      throw new Error('No wallet found. Connect a wallet first.');
-    }
-    const { treasuryAddress } = await getDepositInfo();
+// Verifies an on-chain native-SCAI transfer to the treasury address, then
+// credits coins. Idempotent on tx_hash (UNIQUE constraint on onchain_deposits).
+async function creditScaiDeposit(userId, txHash) {
+  if (!TREASURY_ADDRESS || !RPC_URL) {
+    throw new AppError("Deposits are not configured.", 503);
+  }
 
-    const provider = new BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
+  const existing = db.prepare("SELECT * FROM onchain_deposits WHERE tx_hash = ?").get(txHash);
+  if (existing) {
+    throw new AppError("This transaction has already been credited.", 409);
+  }
 
-    const tx = await signer.sendTransaction({
-      to: treasuryAddress,
-      value: parseEther(amountScai.toString()),
-    });
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const tx = await provider.getTransaction(txHash);
+  if (!tx) {
+    throw new AppError("Transaction not found on chain yet. Try again shortly.", 404);
+  }
 
-    return tx.hash;
-  };
+  const receipt = await provider.getTransactionReceipt(txHash);
+  if (!receipt || receipt.status !== 1) {
+    throw new AppError("Transaction not confirmed or failed.", 400);
+  }
 
-  // Step 3: tell the backend to verify that tx and credit coins
-  const confirmDeposit = async (txHash: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await api.post('/api/deposit', { txHash });
-      return response.data;
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.error || 'Deposit failed';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  if (tx.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
+    throw new AppError("Transaction was not sent to the treasury address.", 400);
+  }
 
-  // Convenience: does the full send + confirm flow in one call
-  const buyCoinsWithScai = async (amountScai: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const txHash = await sendScai(amountScai);
-      return await confirmDeposit(txHash);
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.error || err?.message || 'Deposit failed';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const amountWei = tx.value;
+  const amountScai = parseFloat(ethers.formatEther(amountWei));
+  const coinsCredited = Math.floor(amountScai * SCAI_TO_COINS_RATE);
 
-  return { getDepositInfo, sendScai, confirmDeposit, buyCoinsWithScai, isLoading, error };
-};
+  if (coinsCredited <= 0) {
+    throw new AppError("Deposit amount too small to credit any coins.", 400);
+  }
+
+  const result = db.transaction(() => {
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+    if (!user) throw new AppError("User not found", 404);
+
+    const newBalance = user.coins + coinsCredited;
+    db.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, userId);
+
+    const insert = db.prepare(`
+      INSERT INTO onchain_deposits (user_id, tx_hash, amount_scai_wei, coins_credited)
+      VALUES (?, ?, ?, ?)
+    `);
+    const inserted = insert.run(userId, txHash, amountWei.toString(), coinsCredited);
+
+    db.prepare(`
+      INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
+      VALUES (?, ?, 'onchain_deposit', ?, ?)
+    `).run(userId, coinsCredited, inserted.lastInsertRowid, newBalance);
+
+    return { depositId: inserted.lastInsertRowid, coinsCredited, newBalance };
+  })();
+
+  return result;
+}
+
+function getMyDeposits(userId) {
+  return db
+    .prepare("SELECT * FROM onchain_deposits WHERE user_id = ? ORDER BY created_at DESC")
+    .all(userId);
+}
+
+module.exports = { getTreasuryAddress, creditScaiDeposit, getMyDeposits };

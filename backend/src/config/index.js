@@ -50,4 +50,21 @@ module.exports = {
       .map((s) => s.trim())
       .filter(Boolean),
   },
+
+  // NEW: Stripe fiat purchase settings.
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    // How many coins 1 USD buys. Keep this as the single source of truth so
+    // the frontend never has to hardcode pricing — it reads it from
+    // GET /api/stripe/config instead.
+    coinsPerUsd: parseInt(process.env.COINS_PER_USD || "100", 10),
+    minAmountUsdCents: parseInt(process.env.STRIPE_MIN_AMOUNT_USD_CENTS || "100", 10), // $1 floor (Stripe's own card minimum)
+    maxAmountUsdCents: parseInt(process.env.STRIPE_MAX_AMOUNT_USD_CENTS || "50000", 10), // $500 ceiling, adjust as needed
+    // Where Stripe Checkout redirects after payment. The frontend route
+    // handles crediting confirmation client-side by polling balance;
+    // the source of truth is always the webhook, not this redirect.
+    successUrl: process.env.STRIPE_SUCCESS_URL || "http://localhost:5173/coins/success",
+    cancelUrl: process.env.STRIPE_CANCEL_URL || "http://localhost:5173/coins/cancel",
+  },
 };
