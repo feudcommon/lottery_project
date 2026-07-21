@@ -94,6 +94,30 @@ function verifyTelegramWebAppData(initData) {
 
 module.exports = { verifyTelegramWebAppData };
 
+/** Verifies the Telegram Login Widget payload used by a normal browser. */
+function verifyTelegramLoginWidgetData(payload) {
+  if (!payload || typeof payload !== "object") return { valid: false, error: "Missing Telegram login data" };
+  const botToken = config.telegram.botToken;
+  if (!botToken) return { valid: false, error: "Server misconfigured: no bot token set" };
+  const { hash, id, auth_date: authDate, username, first_name: firstName } = payload;
+  if (!hash || !id || !authDate) return { valid: false, error: "Incomplete Telegram login data" };
+  const pairs = Object.entries(payload)
+    .filter(([key]) => key !== "hash")
+    .map(([key, value]) => `${key}=${value}`)
+    .sort();
+  const secretKey = crypto.createHash("sha256").update(botToken).digest();
+  const computedHash = crypto.createHmac("sha256", secretKey).update(pairs.join("\n")).digest("hex");
+  if (!crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(String(hash)))) {
+    return { valid: false, error: "Invalid Telegram Login Widget signature" };
+  }
+  if (Math.floor(Date.now() / 1000) - Number(authDate) > 24 * 60 * 60) {
+    return { valid: false, error: "Telegram login data expired. Please sign in again." };
+  }
+  return { valid: true, data: { telegramId: String(id), username: username || firstName || `user_${id}` } };
+}
+
+module.exports.verifyTelegramLoginWidgetData = verifyTelegramLoginWidgetData;
+
 // ---------------------------------------------------------------------------
 // NOTE ON THE OLDER "LOGIN WIDGET" FLOW (telegram.org/js/telegram-widget.js):
 // The verification math is the SAME (HMAC-SHA256 with bot token), but the

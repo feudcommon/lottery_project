@@ -23,6 +23,17 @@ const telegramLoginSchema = z.object({
   referralCode: z.string().trim().max(32).optional(),
 });
 
+const browserTelegramLoginSchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  username: z.string().optional(),
+  photo_url: z.string().optional(),
+  auth_date: z.union([z.string(), z.number()]),
+  hash: z.string().length(64),
+  referralCode: z.string().trim().max(32).optional(),
+});
+
 const buyTicketSchema = z.object({
   drawDate: z
     .string()
@@ -59,6 +70,7 @@ const depositSchema = z.object({
 module.exports = {
   validate,
   telegramLoginSchema,
+  browserTelegramLoginSchema,
   buyTicketSchema,
   withdrawSchema,
   spinSchema,

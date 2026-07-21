@@ -141,7 +141,7 @@ export default function Tickets() {
             {coins}
           </div>
           <div style={{ fontSize: '12px', color: '#a0aec0' }}>Cost per ticket: 10 coins</div>
-          {coins < 10 && <div style={{ marginTop: 12, fontSize: '13px', color: '#f0abfc' }}>You need {10 - coins} more coins. Claim your daily reward or <Link to="/profile" style={{ color: '#fff' }}>view ways to earn coins</Link>.</div>}
+          {coins < 10 && <div style={{ marginTop: 12, fontSize: '13px', color: '#f0abfc' }}>You need {10 - coins} more coins. Claim your daily reward or <Link to="/withdraw" style={{ color: '#fff', fontWeight: 700 }}>Buy Coins with SCAI</Link>.</div>}
         </div>
 
         {/* Error Message */}
@@ -234,5 +234,4 @@ export default function Tickets() {
     </div>
   );
 }
-
 

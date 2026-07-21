@@ -1,6 +1,6 @@
 // src/controllers/authController.js
 
-const { verifyTelegramWebAppData } = require("../utils/telegramAuth");
+const { verifyTelegramWebAppData, verifyTelegramLoginWidgetData } = require("../utils/telegramAuth");
 const { signUserToken } = require("../utils/jwt");
 const { findOrCreateUser, getPublicProfile } = require("../services/userService");
 const { asyncHandler, AppError } = require("../middleware/errorHandler");
@@ -32,3 +32,17 @@ const telegramLogin = asyncHandler(async (req, res) => {
 });
 
 module.exports = { telegramLogin };
+
+const browserTelegramLogin = asyncHandler(async (req, res) => {
+  const { referralCode, ...telegramPayload } = req.body;
+  const verification = verifyTelegramLoginWidgetData(telegramPayload);
+  if (!verification.valid) throw new AppError(verification.error || "Telegram login failed", 401);
+  const user = findOrCreateUser({
+    ...verification.data,
+    referralCode,
+    deviceFingerprint: req.headers["user-agent"] || null,
+  });
+  res.json({ token: signUserToken(user), user: getPublicProfile(user) });
+});
+
+module.exports.browserTelegramLogin = browserTelegramLogin;

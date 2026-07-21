@@ -21,6 +21,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const drawRoutes = require("./routes/drawRoutes");
 const jackpotRoutes = require("./routes/jackpotRoutes");
 const depositRoutes = require("./routes/depositRoutes");
+const publicRoutes = require("./routes/publicRoutes");
 
 function createApp() {
   const app = express();
@@ -48,6 +49,7 @@ app.set('trust proxy', 1); // ← ADD THIS
   app.use("/api/leaderboard", leaderboardRoutes);
   app.use("/api/jackpot", jackpotRoutes);
   app.use("/api/deposit", depositRoutes);
+  app.use("/api/public", publicRoutes);
 
   // --- 404 + error handlers (MUST be registered last) ---
   app.use(notFoundHandler);

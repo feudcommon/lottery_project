@@ -47,5 +47,20 @@ export const useAuth = () => {
     }
   };
 
-  return { loginWithTelegram, isLoading, error };
+  const loginWithBrowserTelegram = async (telegramUser: Record<string, unknown>) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.post('/api/auth/telegram-browser', telegramUser);
+      setToken(response.data.token);
+      setUser(response.data.user);
+      window.location.href = '/home';
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Telegram browser login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { loginWithTelegram, loginWithBrowserTelegram, isLoading, error };
 };

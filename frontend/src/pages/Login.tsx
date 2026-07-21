@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserStore } from '../store/userStore';
@@ -7,11 +7,28 @@ import { Link } from 'react-router-dom';
 export default function Login() {
   const navigate = useNavigate();
   const { token } = useUserStore();
-  const { loginWithTelegram, isLoading, error } = useAuth();
+  const { loginWithTelegram, loginWithBrowserTelegram, isLoading, error } = useAuth();
+  const widgetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (token) navigate('/home', { replace: true });
   }, [navigate, token]);
+
+  useEffect(() => {
+    const botName = import.meta.env.VITE_TELEGRAM_BOT_USERNAME;
+    if (window.Telegram?.WebApp || !botName || !widgetRef.current) return;
+    (window as any).onTelegramBrowserLogin = loginWithBrowserTelegram;
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.async = true;
+    script.setAttribute('data-telegram-login', botName);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-radius', '20');
+    script.setAttribute('data-request-access', 'write');
+    script.setAttribute('data-onauth', 'onTelegramBrowserLogin(user)');
+    widgetRef.current.appendChild(script);
+    return () => { delete (window as any).onTelegramBrowserLogin; };
+  }, [loginWithBrowserTelegram]);
 
   return (
     <div style={{
@@ -127,6 +144,8 @@ export default function Login() {
           }}>
           {isLoading ? 'Connecting...' : 'Connect with Telegram'}
         </button>
+        {!window.Telegram?.WebApp && <div ref={widgetRef} style={{ marginTop: -18, marginBottom: 24, minHeight: import.meta.env.VITE_TELEGRAM_BOT_USERNAME ? 42 : 0 }} />}
+        {!window.Telegram?.WebApp && !import.meta.env.VITE_TELEGRAM_BOT_USERNAME && <p style={{ color:'rgba(255,255,255,.55)', fontSize:12, maxWidth:310 }}>Browser sign-in needs <code>VITE_TELEGRAM_BOT_USERNAME</code> configured in the frontend deployment.</p>}
 
         {/* Bottom row */}
         <div style={{ display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:16 }}>
@@ -159,5 +178,4 @@ export default function Login() {
     </div>
   );
 }
-
 
