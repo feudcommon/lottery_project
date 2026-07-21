@@ -4,6 +4,7 @@ import { ArrowLeft, Gift } from 'lucide-react';
 import { useBalance } from '../hooks/useBalance';
 import { useWithdraw } from '../hooks/useWithdraw';
 import WalletConnect from '../components/WalletConnect';
+import BuyCoins from '../components/BuyCoins';
 import api from '../api/client';
 
 export default function Withdraw() {
@@ -183,6 +184,7 @@ export default function Withdraw() {
 
               <WalletConnect onAddress={setWalletAddress} />
             </div>
+            <BuyCoins walletAddress={walletAddress} />
 
             {/* Eligibility */}
             <div

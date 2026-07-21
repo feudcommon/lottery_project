@@ -119,6 +119,17 @@ CREATE TABLE IF NOT EXISTS jackpots (
 
 CREATE INDEX IF NOT EXISTS idx_jackpots_week ON jackpots(week_start);
 `);
+CREATE TABLE IF NOT EXISTS onchain_deposits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  tx_hash TEXT NOT NULL UNIQUE,
+  amount_scai_wei TEXT NOT NULL,
+  coins_credited INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_onchain_deposits_user ON onchain_deposits(user_id);
 
 console.log(`✅ Database initialized at: ${DB_PATH}`);
 db.close();

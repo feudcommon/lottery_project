@@ -69,6 +69,14 @@ const withdrawLimiter = rateLimit({
   handler: standardHandler,
 });
 
+const depositLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: standardHandler,
+});
+
 module.exports = {
   globalLimiter,
   loginLimiter,

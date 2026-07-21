@@ -5,4 +5,5 @@ interface Window {
       expand: () => void;
     };
   };
+  ethereum?: import('ethers').Eip1193Provider;
 }

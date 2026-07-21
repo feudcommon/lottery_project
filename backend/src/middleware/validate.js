@@ -49,6 +49,13 @@ const withdrawSchema = z.object({
 
 const spinSchema = z.object({});
 
+const depositSchema = z.object({
+  txHash: z
+    .string()
+    .trim()
+    .regex(/^0x[a-fA-F0-9]{64}$/, "Must be a valid transaction hash (0x + 64 hex chars)"),
+});
+
 module.exports = {
   validate,
   telegramLoginSchema,
