@@ -62,4 +62,5 @@ module.exports = {
   buyTicketSchema,
   withdrawSchema,
   spinSchema,
+  depositSchema,
 };

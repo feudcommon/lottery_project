@@ -83,6 +83,7 @@ module.exports = {
   buyTicketLimiter,
   spinLimiter,
   withdrawLimiter,
+  depositLimiter,
 };
 
 // ---------------------------------------------------------------------------
