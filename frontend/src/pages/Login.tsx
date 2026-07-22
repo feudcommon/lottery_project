@@ -169,7 +169,7 @@ export default function Login() {
             >
               {isLoading ? 'Connecting…' : 'Connect with Telegram'}
             </button>
-            
+            <a
               href="/how-it-works"
               style={{
                 fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textDecoration: 'none',
