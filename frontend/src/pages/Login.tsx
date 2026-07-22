@@ -65,7 +65,7 @@ export default function Login() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_URL}/api/stats`)
+    fetch(`${API_URL}/api/public/stats`)
       .then((res) => {
         if (!res.ok) throw new Error(`Stats request failed: ${res.status}`);
         return res.json();
