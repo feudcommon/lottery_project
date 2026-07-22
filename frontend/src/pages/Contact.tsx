@@ -8,7 +8,7 @@ export default function Contact() {
         For support, partnership inquiries, or anything else, reach us through either channel below.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 360 }}>
-        
+        <a
           href="https://t.me/ScaiLuckyLoop_bot"
           target="_blank" rel="noreferrer"
           style={{
@@ -23,7 +23,7 @@ export default function Contact() {
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>@ScaiLuckyLoop_bot</div>
           </div>
         </a>
-        
+        <a
           href="mailto:nsiripurapu20@gmail.com"
           style={{
             display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none',
