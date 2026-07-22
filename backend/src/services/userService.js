@@ -7,6 +7,7 @@
 const crypto = require("crypto");
 const db = require("../db/connection");
 const config = require("../config");
+const { AppError } = require("../middleware/errorHandler");
 
 function generateReferralCode() {
   return crypto.randomBytes(5).toString("hex"); // e.g. "a1b2c3d4e5"
@@ -76,6 +77,50 @@ function markReferralActiveIfNeeded(user) {
   `).run(referrer.id, config.game.referralBonus, user.id, newBalance);
 }
 
+/**
+ * Finds an existing user by wallet_address, or creates one. Mirrors
+ * findOrCreateUser but for players who sign in with just a wallet -
+ * no Telegram account involved at all.
+ */
+function findOrCreateUserByWallet({ walletAddress, referralCode }) {
+  const existing = db.prepare("SELECT * FROM users WHERE wallet_address = ?").get(walletAddress);
+  if (existing) return existing;
+
+  let referredBy = null;
+  if (referralCode) {
+    const referrer = db.prepare("SELECT * FROM users WHERE referral_code = ?").get(referralCode);
+    if (referrer) referredBy = referrer.id;
+  }
+
+  const myReferralCode = generateReferralCode();
+  const shortAddress = `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`;
+
+  const insert = db.prepare(`
+    INSERT INTO users (wallet_address, username, coins, referral_code, referred_by, daily_earn_reset_at)
+    VALUES (?, ?, 0, ?, ?, datetime('now'))
+  `);
+  const result = insert.run(walletAddress, shortAddress, myReferralCode, referredBy);
+
+  return db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+}
+
+/**
+ * Links a wallet address to an already-authenticated (e.g. Telegram) user,
+ * so the same account can subsequently log in with either method. Throws
+ * if the wallet is already linked to a different account.
+ */
+function linkWalletToUser(userId, walletAddress) {
+  const ownedByOther = db
+    .prepare("SELECT id FROM users WHERE wallet_address = ? AND id != ?")
+    .get(walletAddress, userId);
+  if (ownedByOther) {
+    throw new AppError("This wallet is already linked to another account.", 409);
+  }
+
+  db.prepare("UPDATE users SET wallet_address = ? WHERE id = ?").run(walletAddress, userId);
+  return db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+}
+
 function getUserById(id) {
   return db.prepare("SELECT * FROM users WHERE id = ?").get(id);
 }
@@ -88,6 +133,8 @@ function getPublicProfile(user) {
     referralCode: user.referral_code,
     referralCount: user.referral_count,
     walletAddress: user.wallet_address,
+    hasTelegram: Boolean(user.telegram_id),
+    hasWallet: Boolean(user.wallet_address),
     withdrawUnlocked:
       user.coins >= config.withdrawal.minCoins && user.referral_count >= config.withdrawal.minReferrals,
   };
@@ -95,6 +142,8 @@ function getPublicProfile(user) {
 
 module.exports = {
   findOrCreateUser,
+  findOrCreateUserByWallet,
+  linkWalletToUser,
   markReferralActiveIfNeeded,
   getUserById,
   getPublicProfile,

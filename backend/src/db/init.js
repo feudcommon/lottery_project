@@ -31,20 +31,35 @@ db.pragma("foreign_keys = ON");
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  telegram_id TEXT UNIQUE NOT NULL,
+  telegram_id TEXT UNIQUE,          -- nullable: wallet-only players have no Telegram identity
   username TEXT,
   coins INTEGER NOT NULL DEFAULT 0,
   referral_code TEXT UNIQUE NOT NULL,
   referred_by INTEGER,             -- FK to users.id, nullable
   referral_count INTEGER NOT NULL DEFAULT 0,
-  wallet_address TEXT,
+  wallet_address TEXT,             -- unique when set (see idx_users_wallet_address_unique below);
+                                    -- doubles as this user's login identity when telegram_id is absent
   device_fingerprint TEXT,         -- anti-multi-account signal
   last_spin_at TEXT,               -- ISO timestamp, for daily earn limits
   daily_coins_earned INTEGER NOT NULL DEFAULT 0,
   daily_earn_reset_at TEXT,
   is_banned INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  FOREIGN KEY (referred_by) REFERENCES users(id)
+  FOREIGN KEY (referred_by) REFERENCES users(id),
+  CHECK (telegram_id IS NOT NULL OR wallet_address IS NOT NULL)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wallet_address_unique
+  ON users(wallet_address) WHERE wallet_address IS NOT NULL;
+
+-- One-time login nonces for "Sign-In With Wallet". A wallet proves it owns
+-- an address by signing the nonce issued here; without this, anyone could
+-- claim any address in a login request and there'd be nothing to check it
+-- against. Rows are single-use and short-lived (see walletAuth.js).
+CREATE TABLE IF NOT EXISTS wallet_login_nonces (
+  wallet_address TEXT PRIMARY KEY,
+  nonce TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS tickets (
@@ -149,6 +164,12 @@ CREATE TABLE IF NOT EXISTS fiat_deposits (
 CREATE INDEX IF NOT EXISTS idx_fiat_deposits_user ON fiat_deposits(user_id);
 CREATE INDEX IF NOT EXISTS idx_fiat_deposits_status ON fiat_deposits(status);
 `);
+
+// Handles schema changes that CREATE TABLE IF NOT EXISTS can't express
+// (e.g. relaxing a NOT NULL constraint on an existing column). Safe to run
+// every boot - each step checks whether it's already applied first.
+const { runMigrations } = require("./migrate");
+runMigrations(db);
 
 console.log(`✅ Database initialized at: ${DB_PATH}`);
 db.close();
