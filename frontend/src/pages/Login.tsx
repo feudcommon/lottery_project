@@ -5,19 +5,36 @@ import { useUserStore } from '../store/userStore';
 import Navbar from '../components/Navbar';
 import { ShieldCheck, Users, Trophy, Coins } from 'lucide-react';
 
-// Live jackpot / countdown / stats shown in the hero's right panel.
-// TODO: wire to real endpoints (jackpot pool, next draw time, player count,
-// recent winner) once those are exposed on the public API — placeholder
-// values below are clearly structured so swapping in real data is a
-// one-line change per field, not a redesign.
-const DRAW_HOUR_UTC = 18;
+const API_URL = import.meta.env.VITE_API_URL;
 
-function useCountdown() {
+interface RecentWinner {
+  username: string;
+  reward: number;
+  date: string;
+}
+
+interface StatsResponse {
+  currentJackpot: number;
+  nextDraw: { hour: number; timezone: string };
+  totalPlayers: number;
+  totalWinners: number;
+  totalRewardsDistributed: number;
+  totalPrizePool: number;
+  ticketsSold: number;
+  recentWinners: RecentWinner[];
+  blockchainNetwork: string;
+  contractAddress: string;
+}
+
+// Countdown to the next draw, driven by the draw hour returned from the API
+// (waits until stats have loaded rather than showing a wrong default).
+function useCountdown(drawHourUtc: number | null) {
   const [label, setLabel] = useState('--:--:--');
   useEffect(() => {
+    if (drawHourUtc === null) return;
     const tick = () => {
       const now = new Date();
-      const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DRAW_HOUR_UTC, 0, 0));
+      const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), drawHourUtc, 0, 0));
       if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 1);
       const diff = next.getTime() - now.getTime();
       const h = String(Math.floor(diff / 3_600_000)).padStart(2, '0');
@@ -28,19 +45,49 @@ function useCountdown() {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [drawHourUtc]);
   return label;
+}
+
+function formatCompactNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1000 === 0 ? 0 : 1)}K`;
+  return n.toLocaleString();
 }
 
 export default function Login() {
   const navigate = useNavigate();
   const { token } = useUserStore();
   const { loginWithTelegram, isLoading, error } = useAuth();
-  const countdown = useCountdown();
+
+  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [statsError, setStatsError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_URL}/api/stats`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Stats request failed: ${res.status}`);
+        return res.json();
+      })
+      .then((data: StatsResponse) => {
+        if (!cancelled) setStats(data);
+      })
+      .catch(() => {
+        if (!cancelled) setStatsError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const countdown = useCountdown(stats ? stats.nextDraw.hour : null);
 
   useEffect(() => {
     if (token) navigate('/home', { replace: true });
   }, [navigate, token]);
+
+  const recentWinner = stats?.recentWinners?.[0];
 
   return (
     <div
@@ -240,7 +287,7 @@ export default function Login() {
                   Today's Jackpot
                 </div>
                 <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 34, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-                  4,850
+                  {stats ? stats.currentJackpot.toLocaleString() : '—'}
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#e879f9', marginLeft: 5 }}>coins</span>
                 </div>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>Next draw in</div>
@@ -253,9 +300,9 @@ export default function Login() {
             {/* Mini stat grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[
-                { icon: Users, label: 'Total players', value: '12,480' },
-                { icon: Trophy, label: 'Recent winner', value: '@lucky_x7' },
-                { icon: Coins, label: 'Prize pool', value: '182K' },
+                { icon: Users, label: 'Total players', value: stats ? stats.totalPlayers.toLocaleString() : '—' },
+                { icon: Trophy, label: 'Recent winner', value: recentWinner ? `@${recentWinner.username}` : '—' },
+                { icon: Coins, label: 'Prize pool', value: stats ? formatCompactNumber(stats.totalPrizePool) : '—' },
                 { icon: ShieldCheck, label: 'Draw method', value: 'On-chain' },
               ].map(({ icon: Icon, label, value }, i) => (
                 <div
@@ -273,6 +320,12 @@ export default function Login() {
                 </div>
               ))}
             </div>
+
+            {statsError && (
+              <div style={{ marginTop: 10, fontSize: 10, color: 'rgba(252,165,165,0.7)', textAlign: 'center' }}>
+                Live stats unavailable right now
+              </div>
+            )}
 
             {/* Telegram preview strip */}
             <div
