@@ -40,15 +40,30 @@ async function creditScaiDeposit(userId, txHash) {
   }
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const tx = await provider.getTransaction(txHash);
-  if (!tx) {
-    throw new AppError("Transaction not found on chain yet. Try again shortly.", 404);
-  }
 
-  const receipt = await provider.getTransactionReceipt(txHash);
-  if (!receipt || receipt.status !== 1) {
-    throw new AppError("Transaction not confirmed or failed.", 400);
-  }
+// Small retry loop: even after the wallet confirms a tx, this backend's
+// own RPC node can lag a block behind. Give it a few short tries before
+// reporting "not found" (404, which the frontend treats as retryable)
+// rather than failing on the very first check.
+let tx = null;
+for (let attempt = 0; attempt < 3 && !tx; attempt++) {
+  tx = await provider.getTransaction(txHash);
+  if (!tx) await new Promise((r) => setTimeout(r, 1500));
+}
+if (!tx) {
+  throw new AppError("Transaction not found on chain yet. Try again shortly.", 404);
+}
+
+const receipt = await provider.getTransactionReceipt(txHash);
+if (!receipt) {
+  // Submitted and visible as pending, but not yet mined into a block —
+  // also retryable, not a real failure.
+  throw new AppError("Transaction not confirmed on chain yet. Try again shortly.", 404);
+}
+if (receipt.status !== 1) {
+  // This IS a real failure — the transaction was mined but reverted.
+  throw new AppError("Transaction failed on-chain (reverted).", 400);
+}
 
   if (tx.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
     throw new AppError("Transaction was not sent to the treasury address.", 400);
