@@ -202,54 +202,54 @@ export default function Login() {
           )}
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: '2.25rem' }}>
-  {isTelegramMiniApp ? (
-    <button
-      onClick={loginWithTelegram}
-      disabled={isLoading}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        padding: '14px 28px',
-        border: 'none',
-        borderRadius: 100,
-        background: 'linear-gradient(135deg,#7c3aed,#c026d3)',
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: 'pointer',
-        letterSpacing: '0.01em',
-        whiteSpace: 'nowrap',
-        boxShadow: '0 0 30px rgba(192,38,211,0.35)',
-        opacity: isLoading ? 0.5 : 1,
-      }}
-    >
-      {isLoading ? 'Connecting…' : 'Connect with Telegram'}
-    </button>
-  ) : (
-    <TelegramLoginWidget
-      botUsername={TELEGRAM_BOT_USERNAME}
-      disabled={isLoading}
-      onAuth={(telegramUser) => loginWithBrowserTelegram(telegramUser)}
-    />
-  )}
+            {isTelegramMiniApp && (
+              <button
+                onClick={loginWithTelegram}
+                disabled={isLoading}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '14px 28px',
+                  border: 'none',
+                  borderRadius: 100,
+                  background: 'linear-gradient(135deg,#7c3aed,#c026d3)',
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  letterSpacing: '0.01em',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 0 30px rgba(192,38,211,0.35)',
+                  opacity: isLoading ? 0.5 : 1,
+                }}
+              >
+                {isLoading ? 'Connecting…' : 'Connect with Telegram'}
+              </button>
+            )}
 
-  <a
-    href="/how-it-works"
-    style={{
-      fontSize: 13,
-      fontWeight: 600,
-      color: 'rgba(255,255,255,0.7)',
-      textDecoration: 'none',
-      padding: '13px 22px',
-      borderRadius: 100,
-      border: '1px solid rgba(255,255,255,0.12)',
-    }}
-  >
-    How it works
-  </a>
-</div>
+            <TelegramLoginWidget
+              botUsername={TELEGRAM_BOT_USERNAME}
+              disabled={isLoading}
+              onAuth={(telegramUser) => loginWithBrowserTelegram(telegramUser)}
+            />
+
+            <a
+              href="/how-it-works"
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.7)',
+                textDecoration: 'none',
+                padding: '13px 22px',
+                borderRadius: 100,
+                border: '1px solid rgba(255,255,255,0.12)',
+              }}
+            >
+              How it works
+            </a>
+          </div>
 
           <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
             {[
