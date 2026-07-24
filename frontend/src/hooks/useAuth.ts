@@ -1,12 +1,7 @@
 import { useState } from 'react';
 import api from '../api/client';
 import { useUserStore } from '../store/userStore';
-
-declare global {
-  interface Window {
-    Telegram: any;
-  }
-}
+import type { TelegramWidgetUser } from '../components/TelegramLoginWidget';
 
 export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,10 +13,13 @@ export const useAuth = () => {
     setError(null);
 
     try {
-      const tg = (window as any).Telegram?.WebApp;
+      const tg = window.Telegram?.WebApp;
       if (!tg) {
-        console.warn('Telegram WebApp not available - running in browser mode');
-        // Provide mock data or redirect to Telegram
+        // Not running inside the Telegram Mini App (e.g. plain browser visit).
+        // There's nothing to read initData from here, so stop instead of
+        // crashing on `tg.initData`. The website falls back to the Telegram
+        // Login Widget (see loginWithBrowserTelegram / TelegramLoginWidget).
+        throw new Error('Open this app from Telegram, or sign in with the Telegram button below.');
       }
 
       const telegramData = tg.initData;
@@ -47,7 +45,7 @@ export const useAuth = () => {
     }
   };
 
-  const loginWithBrowserTelegram = async (telegramUser: Record<string, unknown>) => {
+  const loginWithBrowserTelegram = async (telegramUser: TelegramWidgetUser) => {
     setIsLoading(true);
     setError(null);
     try {

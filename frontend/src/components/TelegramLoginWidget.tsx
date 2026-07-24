@@ -1,5 +1,23 @@
 import { useEffect, useRef } from 'react';
 
+// Payload Telegram's Login Widget passes to the onAuth callback.
+// https://core.telegram.org/widgets/login#receiving-authorization-data
+export type TelegramWidgetUser = {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+};
+
+declare global {
+  interface Window {
+    onTelegramAuth?: (user: TelegramWidgetUser) => void;
+  }
+}
+
 type TelegramLoginWidgetProps = {
   botUsername: string;
   onAuth: (user: TelegramWidgetUser) => void;

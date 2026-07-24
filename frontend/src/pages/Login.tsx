@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserStore } from '../store/userStore';
 import Navbar from '../components/Navbar';
+import TelegramLoginWidget from '../components/TelegramLoginWidget';
 import { ShieldCheck, Users, Trophy, Coins } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL;
+const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'ScaiLuckyLoop_bot';
 
 interface RecentWinner {
   username: string;
@@ -26,8 +28,6 @@ interface StatsResponse {
   contractAddress: string;
 }
 
-// Countdown to the next draw, driven by the draw hour returned from the API
-// (waits until stats have loaded rather than showing a wrong default).
 function useCountdown(drawHourUtc: number | null) {
   const [label, setLabel] = useState('--:--:--');
   useEffect(() => {
@@ -58,7 +58,11 @@ function formatCompactNumber(n: number): string {
 export default function Login() {
   const navigate = useNavigate();
   const { token } = useUserStore();
-  const { loginWithTelegram, isLoading, error } = useAuth();
+  const { loginWithTelegram, loginWithBrowserTelegram, isLoading, error } = useAuth();
+
+  const [isTelegramMiniApp] = useState<boolean>(
+    () => typeof window !== 'undefined' && Boolean((window as any).Telegram?.WebApp?.initData)
+  );
 
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [statsError, setStatsError] = useState(false);
@@ -113,7 +117,6 @@ export default function Login() {
           alignItems: 'center',
         }}
       >
-        {/* Ambient background */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 55% at 15% 25%, #3b0764aa 0%, transparent 65%)' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 55% 50% at 90% 70%, #831843aa 0%, transparent 60%)' }} />
@@ -136,7 +139,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* LEFT: copy + CTA */}
         <div style={{ position: 'relative', zIndex: 2 }}>
           <div style={{ fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#e879f9', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ display: 'inline-block', width: 24, height: 1, background: '#e879f9' }} />
@@ -173,7 +175,6 @@ export default function Login() {
             fair draw settle on-chain — every single day, no exceptions.
           </p>
 
-          {/* Audit badge */}
           <div
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: '1.5rem',
@@ -201,22 +202,30 @@ export default function Login() {
           )}
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: '2.25rem' }}>
-            <button
-              onClick={loginWithTelegram}
-              disabled={isLoading}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 28px',
-                border: 'none', borderRadius: 100,
-                background: 'linear-gradient(135deg,#7c3aed,#c026d3)',
-                color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                letterSpacing: '0.01em', whiteSpace: 'nowrap',
-                boxShadow: '0 0 30px rgba(192,38,211,0.35)',
-                opacity: isLoading ? 0.5 : 1,
-              }}
-            >
-              {isLoading ? 'Connecting…' : 'Connect with Telegram'}
-            </button>
-            <a
+            {isTelegramMiniApp ? (
+              <button
+                onClick={loginWithTelegram}
+                disabled={isLoading}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 28px',
+                  border: 'none', borderRadius: 100,
+                  background: 'linear-gradient(135deg,#7c3aed,#c026d3)',
+                  color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  letterSpacing: '0.01em', whiteSpace: 'nowrap',
+                  boxShadow: '0 0 30px rgba(192,38,211,0.35)',
+                  opacity: isLoading ? 0.5 : 1,
+                }}
+              >
+                {isLoading ? 'Connecting…' : 'Connect with Telegram'}
+              </button>
+            ) : (
+              <TelegramLoginWidget
+                botUsername={TELEGRAM_BOT_USERNAME}
+                disabled={isLoading}
+                onAuth={(telegramUser) => loginWithBrowserTelegram(telegramUser)}
+              />
+            )}
+            
               href="/how-it-works"
               style={{
                 fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textDecoration: 'none',
@@ -227,7 +236,6 @@ export default function Login() {
             </a>
           </div>
 
-          {/* Stat row */}
           <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
             {[
               { num: '1', label: 'Free coin daily' },
@@ -242,7 +250,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* RIGHT: signature loop visual + live game info */}
         <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'center' }}>
           <div
             style={{
@@ -256,7 +263,6 @@ export default function Login() {
               backdropFilter: 'blur(6px)',
             }}
           >
-            {/* Rotating ring, the "Loop" signature element */}
             <div style={{ position: 'relative', width: 236, height: 236, margin: '0 auto 1.5rem' }}>
               <div className="loop-ring" style={{
                 position: 'absolute', inset: 0, borderRadius: '50%',
@@ -266,7 +272,6 @@ export default function Login() {
                 position: 'absolute', inset: 18, borderRadius: '50%',
                 border: '1px solid rgba(167,139,250,0.2)',
               }} />
-              {/* Orbiting ticket dots */}
               <div className="loop-ring" style={{ position: 'absolute', inset: 0 }}>
                 {[0, 60, 120, 180, 240, 300].map((deg) => (
                   <div
@@ -281,7 +286,6 @@ export default function Login() {
                   />
                 ))}
               </div>
-              {/* Center jackpot readout */}
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>
                   Today's Jackpot
@@ -297,7 +301,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Mini stat grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[
                 { icon: Users, label: 'Total players', value: stats ? stats.totalPlayers.toLocaleString() : '—' },
@@ -327,7 +330,6 @@ export default function Login() {
               </div>
             )}
 
-            {/* Telegram preview strip */}
             <div
               style={{
                 marginTop: 14, display: 'flex', alignItems: 'center', gap: 9,
