@@ -1,9 +1,11 @@
 ﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useWalletAuth } from '../hooks/useWalletAuth';
 import { useUserStore } from '../store/userStore';
 import Navbar from '../components/Navbar';
 import TelegramLoginWidget from '../components/TelegramLoginWidget';
+import WalletConnect from '../components/WalletConnect';
 import { ShieldCheck, Users, Trophy, Coins } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -60,6 +62,18 @@ export default function Login() {
   const { token } = useUserStore();
   const { loginWithTelegram, loginWithBrowserTelegram, isLoading, error } = useAuth();
 
+  // Wallet-based auth: lets someone play from the plain website with no
+  // Telegram account at all. `address`/`isConnected` come from AppKit's own
+  // wallet-connect state, so we don't need WalletConnect's onAddress callback
+  // for anything here — we just react to isConnected below.
+  const {
+    isConnected: isWalletConnected,
+    address: walletAddress,
+    loginWithWallet,
+    isLoading: isWalletLoading,
+    error: walletError,
+  } = useWalletAuth();
+
   const [isTelegramMiniApp] = useState<boolean>(
     () => typeof window !== 'undefined' && Boolean((window as any).Telegram?.WebApp?.initData)
   );
@@ -91,7 +105,18 @@ export default function Login() {
     if (token) navigate('/home', { replace: true });
   }, [navigate, token]);
 
+  // As soon as a wallet connects, prompt the signature + log in — no extra
+  // click needed beyond the wallet's own "connect" flow.
+  useEffect(() => {
+    if (isWalletConnected && walletAddress) {
+      loginWithWallet();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWalletConnected, walletAddress]);
+
   const recentWinner = stats?.recentWinners?.[0];
+  const combinedError = error || walletError;
+  const anyLoading = isLoading || isWalletLoading;
 
   return (
     <div
@@ -195,17 +220,17 @@ export default function Login() {
             </div>
           </div>
 
-          {error && (
+          {combinedError && (
             <div style={{ borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 13, background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', maxWidth: 420 }}>
-              {error}
+              {combinedError}
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: '2.25rem' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
             {isTelegramMiniApp && (
               <button
                 onClick={loginWithTelegram}
-                disabled={isLoading}
+                disabled={anyLoading}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -222,7 +247,7 @@ export default function Login() {
                   letterSpacing: '0.01em',
                   whiteSpace: 'nowrap',
                   boxShadow: '0 0 30px rgba(192,38,211,0.35)',
-                  opacity: isLoading ? 0.5 : 1,
+                  opacity: anyLoading ? 0.5 : 1,
                 }}
               >
                 {isLoading ? 'Connecting…' : 'Connect with Telegram'}
@@ -231,9 +256,15 @@ export default function Login() {
 
             <TelegramLoginWidget
               botUsername={TELEGRAM_BOT_USERNAME}
-              disabled={isLoading}
+              disabled={anyLoading}
               onAuth={(telegramUser) => loginWithBrowserTelegram(telegramUser)}
             />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: '2.25rem' }}>
+            {/* Wallet login: lets anyone play straight from the website,
+                Telegram account or not. */}
+            <WalletConnect onAddress={() => {}} />
 
             <a
               href="/how-it-works"
