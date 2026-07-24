@@ -42,10 +42,21 @@ export default function TelegramLoginWidget({
 }: TelegramLoginWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Always call the LATEST onAuth without making the script-injection
+  // effect below depend on it. If onAuth were a dependency, a parent that
+  // passes an inline arrow function (a new reference on every render, e.g.
+  // whenever a countdown timer ticks) would cause this effect to tear down
+  // and recreate Telegram's <script> on every re-render — which is exactly
+  // what caused the widget to flicker/blink continuously.
+  const onAuthRef = useRef(onAuth);
+  useEffect(() => {
+    onAuthRef.current = onAuth;
+  }, [onAuth]);
+
   useEffect(() => {
     if (!containerRef.current || disabled) return;
 
-    window.onTelegramAuth = (user: TelegramWidgetUser) => onAuth(user);
+    window.onTelegramAuth = (user: TelegramWidgetUser) => onAuthRef.current(user);
 
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
@@ -63,7 +74,7 @@ export default function TelegramLoginWidget({
       delete window.onTelegramAuth;
       if (containerRef.current) containerRef.current.innerHTML = '';
     };
-  }, [botUsername, onAuth, disabled]);
+  }, [botUsername, disabled]);
 
   if (disabled) return null;
 
