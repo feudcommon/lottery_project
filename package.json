@@ -5,6 +5,6 @@
   "scripts": {
     "start": "cd backend && npm start",
     "dev": "cd backend && npm run dev",
-    "build": "cd backend && npm install"
+    "build": "apk add --no-cache python3 make g++ && cd backend && npm install"
   }
 }
