@@ -12,7 +12,8 @@
 
 const path = require("path");
 const fs = require("fs");
-const Database = require("better-sqlite3");
+const { DatabaseSync } = require("node:sqlite");
+const { attachCompat } = require("./sqliteCompat");
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, "..", "..", "data", "lucky_loop.db");
 
@@ -22,7 +23,7 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const db = new Database(DB_PATH);
+const db = attachCompat(new DatabaseSync(DB_PATH));
 
 // WAL mode = better concurrency (readers don't block writers)
 db.pragma("journal_mode = WAL");
