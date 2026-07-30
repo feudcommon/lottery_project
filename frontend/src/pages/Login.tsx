@@ -9,7 +9,8 @@ import WalletConnect from '../components/WalletConnect';
 import { ShieldCheck, Users, Trophy, Coins } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL;
-const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'ScaiLuckyLoop_bot';
+const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME?.trim();
+const TELEGRAM_LOGIN_CONFIGURED = Boolean(TELEGRAM_BOT_USERNAME);
 
 interface RecentWinner {
   username: string;
@@ -254,11 +255,33 @@ export default function Login() {
               </button>
             )}
 
-            <TelegramLoginWidget
-              botUsername={TELEGRAM_BOT_USERNAME}
-              disabled={anyLoading}
-              onAuth={(telegramUser) => loginWithBrowserTelegram(telegramUser)}
-            />
+            {TELEGRAM_LOGIN_CONFIGURED ? (
+              <TelegramLoginWidget
+                botUsername={TELEGRAM_BOT_USERNAME}
+                disabled={anyLoading}
+                onAuth={(telegramUser) => loginWithBrowserTelegram(telegramUser)}
+              />
+            ) : (
+              <div
+                style={{
+                  maxWidth: 420,
+                  padding: '14px 18px',
+                  borderRadius: 14,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#f8fafc',
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                }}
+              >
+                Telegram login is not configured for this build. Set
+                <code style={{ fontFamily: 'monospace', margin: '0 0.25rem' }}>
+                  VITE_TELEGRAM_BOT_USERNAME
+                </code>
+                in your frontend environment and make sure your bot allows
+                this domain.
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: '2.25rem' }}>

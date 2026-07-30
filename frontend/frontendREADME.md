@@ -19,6 +19,7 @@ Create `.env.local` for development:
 
 ```dotenv
 VITE_API_URL=http://localhost:3000
+VITE_TELEGRAM_BOT_USERNAME=YourBotUsername_bot
 VITE_RPC_URL=https://mainnet-rpc.scai.network
 VITE_CONTRACT_ADDRESS=0x290483A8fC8ed76647dA75260eb2a2594B5330a2
 VITE_CHAIN_ID=34
@@ -26,6 +27,7 @@ VITE_EXPLORER_URL=https://explorer.securechain.ai
 VITE_REOWN_PROJECT_ID=your_reown_project_id
 ```
 
+The Telegram login widget requires your bot username and the current domain to be authorized in BotFather. If this value is missing, the login button will not render.
 Vite only exposes variables beginning with `VITE_`. Do not use legacy `REACT_APP_*` names.
 
 `VITE_REOWN_PROJECT_ID` enables Reown AppKit. If it is absent, the app still loads and the wallet section reports that wallet connection is unavailable.

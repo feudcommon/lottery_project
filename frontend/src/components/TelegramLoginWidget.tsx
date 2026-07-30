@@ -19,7 +19,7 @@ declare global {
 }
 
 type TelegramLoginWidgetProps = {
-  botUsername: string;
+  botUsername?: string;
   onAuth: (user: TelegramWidgetUser) => void;
   disabled?: boolean;
 };
@@ -54,7 +54,7 @@ export default function TelegramLoginWidget({
   }, [onAuth]);
 
   useEffect(() => {
-    if (!containerRef.current || disabled) return;
+    if (!containerRef.current || disabled || !botUsername) return;
 
     window.onTelegramAuth = (user: TelegramWidgetUser) => onAuthRef.current(user);
 

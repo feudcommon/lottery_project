@@ -83,6 +83,7 @@ Create `frontend/.env.local` for local use. All browser-visible Vite values must
 
 ```dotenv
 VITE_API_URL=http://localhost:3000
+VITE_TELEGRAM_BOT_USERNAME=YourBotUsername_bot
 VITE_RPC_URL=https://mainnet-rpc.scai.network
 VITE_CONTRACT_ADDRESS=0x290483A8fC8ed76647dA75260eb2a2594B5330a2
 VITE_CHAIN_ID=34
