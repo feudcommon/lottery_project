@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { useBalance } from '../hooks/useBalance';
 import api from '../api/client';
 
 export default function Home() {
+  const navigate = useNavigate();
   const { coins, refetch } = useBalance();
   const [spinLoading, setSpinLoading] = useState(false);
   const [spinMessage, setSpinMessage] = useState<string | null>(null);
@@ -48,13 +51,43 @@ export default function Home() {
 
         {/* Header */}
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'2rem' }}>
-          <div>
-            <div style={{ fontSize:10,letterSpacing:'0.2em',textTransform:'uppercase',color:'#e879f9',marginBottom:4,display:'flex',alignItems:'center',gap:6 }}>
-              <span style={{ display:'inline-block',width:16,height:1,background:'#e879f9' }} />
-              Daily Lottery
-            </div>
-            <div style={{ fontSize:22,fontWeight:800,letterSpacing:'-0.02em' }}>
-              SCAI <span style={{ background:'linear-gradient(90deg,#e879f9,#a78bfa)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text' }}>Lucky Loop</span>
+          <div style={{ display:'flex',alignItems:'center',gap:12 }}>
+            <button
+              onClick={() => navigate('/login')}
+              style={{
+                background: 'rgba(232, 121, 249, 0.1)',
+                border: '1px solid rgba(232, 121, 249, 0.3)',
+                color: '#fff',
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                padding: '0',
+                flexShrink: 0,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(232, 121, 249, 0.2)';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(232, 121, 249, 0.1)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <div style={{ fontSize:10,letterSpacing:'0.2em',textTransform:'uppercase',color:'#e879f9',marginBottom:4,display:'flex',alignItems:'center',gap:6 }}>
+                <span style={{ display:'inline-block',width:16,height:1,background:'#e879f9' }} />
+                Daily Lottery
+              </div>
+              <div style={{ fontSize:22,fontWeight:800,letterSpacing:'-0.02em' }}>
+                SCAI <span style={{ background:'linear-gradient(90deg,#e879f9,#a78bfa)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text' }}>Lucky Loop</span>
+              </div>
             </div>
           </div>
           <div style={{ fontSize:10,letterSpacing:'0.12em',color:'rgba(255,255,255,0.2)',textTransform:'uppercase',border:'1px solid rgba(255,255,255,0.1)',padding:'4px 10px',borderRadius:100 }}>
