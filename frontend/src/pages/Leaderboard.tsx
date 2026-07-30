@@ -36,7 +36,7 @@ export default function Leaderboard() {
       fontFamily: 'sans-serif',
       paddingBottom: '2rem',
     }}>
-      <div style={{ padding: '1.5rem' }}>
+      <div style={{ padding: '1.5rem', maxWidth: 480, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <button
             onClick={() => navigate(-1)}

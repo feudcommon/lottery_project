@@ -44,7 +44,7 @@ export default function Home() {
       }}>LUCKY</div>
 
       {/* Content */}
-      <div style={{ position:'relative',zIndex:2,padding:'2rem 1.5rem' }}>
+      <div style={{ position:'relative',zIndex:2,padding:'2rem 1.5rem',maxWidth:480,margin:'0 auto' }}>
 
         {/* Header */}
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'2rem' }}>

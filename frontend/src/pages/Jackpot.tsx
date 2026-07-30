@@ -18,7 +18,7 @@ export default function Jackpot() {
       minHeight: '100vh', background: 'linear-gradient(135deg, #07050f 0%, #1a0f2e 100%)',
       color: '#fff', fontFamily: 'sans-serif', paddingBottom: '2rem',
     }}>
-      <div style={{ padding: '1.5rem' }}>
+      <div style={{ padding: '1.5rem', maxWidth: 480, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <button onClick={() => navigate(-1)} style={{
             background: 'rgba(232, 121, 249, 0.1)', border: '1px solid rgba(232, 121, 249, 0.3)',

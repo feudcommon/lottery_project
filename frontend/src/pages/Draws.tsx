@@ -53,7 +53,7 @@ export default function Draws() {
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 60% 50% at 80% 60%, #831843aa 0%, transparent 60%)' }} />
 
       {/* Content */}
-      <div style={{ position: 'relative', zIndex: 2, padding: '1.5rem' }}>
+      <div style={{ position: 'relative', zIndex: 2, padding: '1.5rem', maxWidth: 480, margin: '0 auto' }}>
         {/* Header with Back Button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <button
