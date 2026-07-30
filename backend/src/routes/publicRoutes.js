@@ -15,6 +15,12 @@ router.get("/stats", globalLimiter, (req, res) => {
   const winnerCount = db.prepare("SELECT COUNT(DISTINCT winner_user_id) AS count FROM draws WHERE winner_user_id IS NOT NULL").get().count;
   const rewards = db.prepare("SELECT COALESCE(SUM(amount), 0) AS total FROM coin_transactions WHERE amount > 0 AND reason IN ('lottery_win', 'jackpot_win')").get().total;
   const winners = db.prepare(`SELECT u.username, d.reward_amount AS reward, d.draw_date AS date FROM draws d JOIN users u ON u.id = d.winner_user_id WHERE d.winner_user_id IS NOT NULL ORDER BY d.draw_date DESC LIMIT 3`).all();
+
+  const contractAddress = process.env.LLT_CONTRACT_ADDRESS;
+  if (!contractAddress) {
+    throw new Error("LLT_CONTRACT_ADDRESS is required");
+  }
+
   res.json({
     currentJackpot: jackpot.poolAmount,
     nextDraw: { hour: config.game.drawHour, timezone: process.env.CRON_TIMEZONE || "UTC" },
@@ -25,7 +31,7 @@ router.get("/stats", globalLimiter, (req, res) => {
     ticketsSold: draw?.total_tickets_sold || 0,
     recentWinners: winners,
     blockchainNetwork: "SCAI Mainnet",
-    contractAddress: process.env.LLT_CONTRACT_ADDRESS || "0x290483A8fC8ed76647dA75260eb2a2594B5330a2",
+    contractAddress,
   });
 });
 

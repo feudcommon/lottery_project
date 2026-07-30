@@ -1,9 +1,3 @@
-// src/app.js
-//
-// This is where the Express app is assembled: middleware order matters
-// here, so read top-to-bottom — that's the actual order requests flow
-// through.
-
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
@@ -22,36 +16,37 @@ const drawRoutes = require("./routes/drawRoutes");
 const jackpotRoutes = require("./routes/jackpotRoutes");
 const depositRoutes = require("./routes/depositRoutes");
 const publicRoutes = require("./routes/publicRoutes");
+const stripeRoutes = require("./routes/stripeRoutes");
 
 function createApp() {
   const app = express();
-app.set('trust proxy', 1); // ← ADD THIS
+  app.set("trust proxy", 1);
 
-  // --- Security & parsing middleware (runs on EVERY request) ---
-  app.use(helmet());                 // sets safe HTTP headers (XSS protection, etc.)
-  app.use(cors());                   // allows your Telegram Mini App frontend to call this API
-  app.use(express.json({ limit: "100kb" })); // parses JSON bodies; size cap stops huge payload abuse
-  app.use(globalLimiter);            // general rate-limit safety net, applies to all routes below
+  const corsOptions = {};
+  if (process.env.FRONTEND_URL) {
+    corsOptions.origin = process.env.FRONTEND_URL;
+  }
 
-  // --- Health check (useful for uptime monitoring / load balancers) ---
+  app.use(helmet());
+  app.use(cors(corsOptions));
+  app.use(express.json({ limit: "100kb" }));
+  app.use(globalLimiter);
+
   app.get("/health", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
 
-  // --- Route mounting ---
-  // Each group of routes is "mounted" at a base path. So
-  // router.post('/telegram', ...) inside authRoutes becomes POST /api/auth/telegram.
   app.use("/api/auth", authRoutes);
   app.use("/api/user", userRoutes);
   app.use("/api/withdraw", withdrawalRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/draws", drawRoutes);
-  app.use("/api", coinRoutes);    // POST /api/spin
-  app.use("/api", ticketRoutes);  // POST /api/buy-ticket, GET /api/tickets/today
+  app.use("/api", coinRoutes);
+  app.use("/api", ticketRoutes);
   app.use("/api/leaderboard", leaderboardRoutes);
   app.use("/api/jackpot", jackpotRoutes);
   app.use("/api/deposit", depositRoutes);
   app.use("/api/public", publicRoutes);
+  app.use("/api/stripe", stripeRoutes);
 
-  // --- 404 + error handlers (MUST be registered last) ---
   app.use(notFoundHandler);
   app.use(errorHandler);
 

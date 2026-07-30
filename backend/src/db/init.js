@@ -9,13 +9,19 @@
 // - better-sqlite3 is synchronous, which actually makes the lottery
 //   draw logic SAFER (no race conditions from async DB calls mid-transaction)
 // - You can migrate to Postgres/MySQL later — the SQL here is close to standard ANSI SQL
-
 const path = require("path");
 const fs = require("fs");
 const { DatabaseSync } = require("node:sqlite");
 const { attachCompat } = require("./sqliteCompat");
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, "..", "..", "data", "lucky_loop.db");
+const DB_PATH =
+  process.env.DB_PATH || path.join(__dirname, "..", "..", "data", "lucky_loop.db");
+
+if (process.env.NODE_ENV === "production" && !process.env.DB_PATH) {
+  throw new Error(
+    "DB_PATH must be set in production. Local ./data is ephemeral on cloud platforms.",
+  );
+}
 
 // Make sure the /data folder exists
 const dataDir = path.dirname(DB_PATH);

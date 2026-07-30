@@ -8,12 +8,21 @@ if (!config.jwt.secret) {
   process.exit(1);
 }
 
-// ← ADD THIS LINE
-require("./db/init");
+if (!Number.isInteger(config.port) || config.port <= 0) {
+  console.error(`FATAL: invalid PORT: ${process.env.PORT}`);
+  process.exit(1);
+}
+
+try {
+  require("./db/init");
+} catch (error) {
+  console.error("FATAL: Database initialization failed:", error);
+  process.exit(1);
+}
 
 const app = createApp();
 
-app.listen(config.port, () => {
+app.listen(config.port, "0.0.0.0", () => {
   console.log(` SCAI Lucky Loop backend running on port ${config.port} (${config.nodeEnv})`);
   startLotteryCronJobs();
 });
