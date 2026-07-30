@@ -53,7 +53,7 @@ export default function Home() {
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'2rem' }}>
           <div style={{ display:'flex',alignItems:'center',gap:12 }}>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/rules')}
               style={{
                 background: 'rgba(232, 121, 249, 0.1)',
                 border: '1px solid rgba(232, 121, 249, 0.3)',
