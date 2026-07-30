@@ -20,12 +20,17 @@ export default function Profile() {
     }
   }, [user]);
 
-  const referralLink = `https://t.me/your_bot_name/app?ref=${user?.id}`;
+  const referralLink = `https://t.me/ScaiLuckyLoop_bot/app?ref=${user?.id}`;
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(referralLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(referralLink)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy referral link:', err);
+      });
   };
 
   const handleLogout = () => {
