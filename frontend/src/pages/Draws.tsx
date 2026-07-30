@@ -173,12 +173,22 @@ export default function Draws() {
                     )}
                   </>
                 ) : selectedDraw.status === 'closed' ? (
-                  <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>
-                    Sales closed — draw pending
+                  <div>
+                    <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>
+                      Sales closed — draw pending
+                    </div>
+                    <div style={{ color: '#a0aec0', fontSize: '12px', marginTop: '0.5rem' }}>
+                      Results will be posted here at 11:00 PM IST
+                    </div>
                   </div>
                 ) : (
-                  <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>
-                    Sales open — draw pending
+                  <div>
+                    <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '14px' }}>
+                      Sales open — draw pending
+                    </div>
+                    <div style={{ color: '#a0aec0', fontSize: '12px', marginTop: '0.5rem' }}>
+                      Ticket sales close at 10:00 PM IST · Results posted at 11:00 PM IST
+                    </div>
                   </div>
                 )}
               </div>
