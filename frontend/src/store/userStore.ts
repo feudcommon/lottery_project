@@ -5,6 +5,7 @@ interface User {
   telegramId: number;
   username: string;
   coins: number;
+  referralCode: string;
   referralCount: number;
   isBanned: boolean;
   createdAt: string;

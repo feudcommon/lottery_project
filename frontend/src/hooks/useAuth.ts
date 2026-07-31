@@ -8,7 +8,7 @@ export const useAuth = () => {
   const [error, setError] = useState<string | null>(null);
   const { setUser, setToken } = useUserStore();
 
-  const loginWithTelegram = async () => {
+  const loginWithTelegram = async (referralCode?: string) => {
     setIsLoading(true);
     setError(null);
 
@@ -29,6 +29,7 @@ export const useAuth = () => {
 
       const response = await api.post('/api/auth/telegram', {
         initData: telegramData,
+        referralCode,
       });
 
       const { token, user } = response.data;
@@ -45,11 +46,11 @@ export const useAuth = () => {
     }
   };
 
-  const loginWithBrowserTelegram = async (telegramUser: TelegramWidgetUser) => {
+  const loginWithBrowserTelegram = async (telegramUser: TelegramWidgetUser, referralCode?: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.post('/api/auth/telegram-browser', telegramUser);
+      const response = await api.post('/api/auth/telegram-browser', { ...telegramUser, referralCode });
       setToken(response.data.token);
       setUser(response.data.user);
       window.location.href = '/home';
