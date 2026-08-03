@@ -124,14 +124,30 @@ export default function Login() {
     if (token) navigate('/home', { replace: true });
   }, [navigate, token]);
 
-  // As soon as a wallet connects, prompt the signature + log in — no extra
-  // click needed beyond the wallet's own "connect" flow.
+  // Inside the Telegram Mini App, Telegram's `initData` is handed to us
+  // fresh on every load — it doesn't depend on localStorage surviving,
+  // so it's both the simplest and the most reliable way to log in here.
+  // Auto-triggering it means someone browsing inside Telegram never has
+  // to see a login screen, let alone a wallet popup, on every visit.
   useEffect(() => {
-    if (isWalletConnected && walletAddress) {
+    if (isTelegramMiniApp && !token) {
+      loginWithTelegram(referralCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTelegramMiniApp, token]);
+
+  // As soon as a wallet connects, prompt the signature + log in — no extra
+  // click needed beyond the wallet's own "connect" flow. Skipped inside the
+  // Telegram Mini App: Telegram login (above) already handles auth there,
+  // and re-signing a wallet message every time a wallet happens to be
+  // connected (e.g. inside Telegram's embedded browser, where storage can
+  // be unreliable) is exactly what was causing repeated MetaMask prompts.
+  useEffect(() => {
+    if (isWalletConnected && walletAddress && !isTelegramMiniApp) {
       loginWithWallet(referralCode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isWalletConnected, walletAddress]);
+  }, [isWalletConnected, walletAddress, isTelegramMiniApp]);
 
   const recentWinner = stats?.recentWinners?.[0];
   const combinedError = error || walletError;
