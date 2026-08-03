@@ -8,7 +8,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, logout } = useUserStore();
   const [stats, setStats] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedType, setCopiedType] = useState<'telegram' | 'website' | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -20,13 +20,23 @@ export default function Profile() {
     }
   }, [user]);
 
-  const referralLink = `https://t.me/ScaiLuckyLoop_bot/app?ref=${user?.id}`;
+  // Two separate links so a referrer can share the right one depending on
+  // where their friend will actually sign up:
+  //  - Telegram Mini App deep link: `startapp` becomes `start_param` inside
+  //    the app once opened from Telegram (a plain `?ref=` on a t.me link is
+  //    never delivered to the app).
+  //  - Website link: a normal `?ref=` query param, read on the /login page.
+  // Both must carry `referral_code` (not the internal numeric id), since
+  // that's what the backend matches new signups against.
+  const telegramReferralLink = `https://t.me/ScaiLuckyLoop_bot/app?startapp=${user?.referralCode}`;
+  const websiteReferralLink = `${window.location.origin}/login?ref=${user?.referralCode}`;
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(referralLink)
+  const copyToClipboard = (type: 'telegram' | 'website') => {
+    const link = type === 'telegram' ? telegramReferralLink : websiteReferralLink;
+    navigator.clipboard.writeText(link)
       .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setCopiedType(type);
+        setTimeout(() => setCopiedType(null), 2000);
       })
       .catch(err => {
         console.error('Failed to copy referral link:', err);
@@ -148,37 +158,71 @@ export default function Profile() {
               <p style={{ fontSize: '13px', color: '#a0aec0', marginBottom: '1rem', margin: '0 0 1rem 0' }}>
                 Invite friends and earn 500 coins per referral!
               </p>
-              <button
-                onClick={copyToClipboard}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: 'linear-gradient(135deg, #34d399, #10b981)',
-                  border: 'none',
-                  color: '#fff',
-                  borderRadius: '100px',
-                  fontWeight: '600',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  boxShadow: '0 0 30px rgba(52, 211, 153, 0.35)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(52, 211, 153, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 0 30px rgba(52, 211, 153, 0.35)';
-                }}
-              >
-                <Copy size={16} />
-                {copied ? 'Copied!' : 'Copy Referral Link'}
-              </button>
+              <p style={{ fontSize: '11px', color: '#71809a', margin: '0 0 0.75rem 0' }}>
+                Share the Telegram link with friends who'll play in Telegram, or the website link with friends who'll play in a browser.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <button
+                  onClick={() => copyToClipboard('telegram')}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #34d399, #10b981)',
+                    border: 'none',
+                    color: '#fff',
+                    borderRadius: '100px',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 30px rgba(52, 211, 153, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(52, 211, 153, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 0 30px rgba(52, 211, 153, 0.35)';
+                  }}
+                >
+                  <Copy size={16} />
+                  {copiedType === 'telegram' ? 'Copied!' : 'Copy Telegram Link'}
+                </button>
+
+                <button
+                  onClick={() => copyToClipboard('website')}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(167, 139, 250, 0.12)',
+                    border: '1px solid rgba(167, 139, 250, 0.4)',
+                    color: '#fff',
+                    borderRadius: '100px',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(167, 139, 250, 0.2)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(167, 139, 250, 0.12)';
+                  }}
+                >
+                  <Copy size={16} />
+                  {copiedType === 'website' ? 'Copied!' : 'Copy Website Link'}
+                </button>
+              </div>
             </div>
 
             {/* Statistics Card */}

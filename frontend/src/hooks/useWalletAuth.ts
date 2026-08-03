@@ -33,25 +33,28 @@ export function useWalletAuth() {
   );
 
   /** Signs the connected wallet in, creating a wallet-only account if none exists yet. */
-  const loginWithWallet = useCallback(async () => {
-    if (!address || !walletProvider) {
-      setError('Connect a wallet first.');
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      const signature = await signNonce(address);
-      const { data } = await api.post('/api/auth/wallet', { address, signature });
-      setToken(data.token);
-      setUser(data.user);
-      window.location.href = '/home';
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Wallet login failed');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [address, walletProvider, signNonce, setToken, setUser]);
+  const loginWithWallet = useCallback(
+    async (referralCode?: string) => {
+      if (!address || !walletProvider) {
+        setError('Connect a wallet first.');
+        return;
+      }
+      setIsLoading(true);
+      setError(null);
+      try {
+        const signature = await signNonce(address);
+        const { data } = await api.post('/api/auth/wallet', { address, signature, referralCode });
+        setToken(data.token);
+        setUser(data.user);
+        window.location.href = '/home';
+      } catch (err: any) {
+        setError(err.response?.data?.error || err.message || 'Wallet login failed');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [address, walletProvider, signNonce, setToken, setUser]
+  );
 
   /** Attaches the connected wallet to the CURRENT (already logged-in) account. */
   const linkWallet = useCallback(async () => {

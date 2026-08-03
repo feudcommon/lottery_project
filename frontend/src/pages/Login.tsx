@@ -58,6 +58,21 @@ function formatCompactNumber(n: number): string {
   return n.toLocaleString();
 }
 
+/**
+ * A referral code can arrive two ways:
+ *  - Plain website / browser-widget flow: `?ref=CODE` in the page URL.
+ *  - Telegram Mini App deep link (`t.me/Bot/app?startapp=CODE`): Telegram
+ *    passes that as `start_param` inside `Telegram.WebApp.initDataUnsafe`,
+ *    not as a normal URL query param.
+ */
+function getReferralCodeFromContext(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const fromUrl = new URLSearchParams(window.location.search).get('ref');
+  if (fromUrl) return fromUrl;
+  const tg = (window as any).Telegram?.WebApp;
+  return tg?.initDataUnsafe?.start_param || undefined;
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const { token } = useUserStore();
@@ -81,6 +96,9 @@ export default function Login() {
 
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [statsError, setStatsError] = useState(false);
+
+  // Captured once on mount so it survives the redirect to /home after login.
+  const [referralCode] = useState<string | undefined>(getReferralCodeFromContext);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,7 +128,7 @@ export default function Login() {
   // click needed beyond the wallet's own "connect" flow.
   useEffect(() => {
     if (isWalletConnected && walletAddress) {
-      loginWithWallet();
+      loginWithWallet(referralCode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWalletConnected, walletAddress]);
@@ -230,7 +248,7 @@ export default function Login() {
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
             {isTelegramMiniApp && (
               <button
-                onClick={loginWithTelegram}
+                onClick={() => loginWithTelegram(referralCode)}
                 disabled={anyLoading}
                 style={{
                   display: 'flex',
@@ -259,7 +277,7 @@ export default function Login() {
               <TelegramLoginWidget
                 botUsername={TELEGRAM_BOT_USERNAME}
                 disabled={anyLoading}
-                onAuth={(telegramUser) => loginWithBrowserTelegram(telegramUser)}
+                onAuth={(telegramUser) => loginWithBrowserTelegram(telegramUser, referralCode)}
               />
             ) : (
               <div
