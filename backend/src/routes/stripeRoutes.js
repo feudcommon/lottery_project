@@ -29,9 +29,10 @@ router.post(
   }),
 );
 
+// Body already made raw by the app-level middleware in app.js (must run
+// before the global express.json() there — see comment in app.js).
 router.post(
   "/webhook",
-  express.raw({ type: "application/json" }),
   asyncHandler(async (req, res) => {
     const signature = req.headers["stripe-signature"];
     const event = constructWebhookEvent(req.body, signature);

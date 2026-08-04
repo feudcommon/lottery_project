@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useBalance } from '../hooks/useBalance';
 import api from '../api/client';
@@ -152,7 +152,7 @@ export default function Home() {
             { label:'Jackpot', href:'/jackpot', color:'#9333ea' },
             { label:'Profile', href:'/profile', color:'rgba(255,255,255,0.08)' },
           ].map((item) => (
-            <a key={item.href} href={item.href} style={{
+            <Link key={item.href} to={item.href} style={{
               display:'block',padding:'1rem',borderRadius:16,textAlign:'center',
               fontWeight:600,fontSize:13,color:'#fff',textDecoration:'none',
               background: item.color,
@@ -160,7 +160,7 @@ export default function Home() {
               letterSpacing:'0.03em',
             }}>
               {item.label}
-            </a>
+            </Link>
           ))}
         </div>
 

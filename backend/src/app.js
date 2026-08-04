@@ -29,6 +29,13 @@ function createApp() {
 
   app.use(helmet());
   app.use(cors(corsOptions));
+
+  // Stripe's webhook signature verification needs the raw, unparsed request
+  // body. This MUST be registered before the global express.json() below —
+  // otherwise json() consumes the body stream first, and by the time the
+  // webhook route's own body parsing runs, there's nothing left to read.
+  app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
+
   app.use(express.json({ limit: "100kb" }));
   app.use(globalLimiter);
 

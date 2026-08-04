@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useWalletAuth } from '../hooks/useWalletAuth';
 import { useUserStore } from '../store/userStore';
@@ -323,8 +323,8 @@ export default function Login() {
                 Telegram account or not. */}
             <WalletConnect onAddress={() => {}} />
 
-            <a
-              href="/how-it-works"
+            <Link
+              to="/how-it-works"
               style={{
                 fontSize: 13,
                 fontWeight: 600,
@@ -336,7 +336,7 @@ export default function Login() {
               }}
             >
               How it works
-            </a>
+            </Link>
           </div>
 
           <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
