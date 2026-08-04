@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 
@@ -15,6 +15,8 @@ export default function Admin() {
   );
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [attempts, setAttempts] = useState(0);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   const [users, setUsers] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -24,13 +26,24 @@ export default function Admin() {
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // No lockout, no attempt cap — this always re-checks against the
+    // current input and lets the person try again immediately.
     if (passwordInput === ADMIN_PANEL_PASSWORD) {
       sessionStorage.setItem(SESSION_KEY, 'true');
       setUnlocked(true);
       setPasswordError('');
-    } else {
-      setPasswordError('Incorrect password.');
+      setPasswordInput('');
+      setAttempts(0);
+      return;
     }
+
+    // Wrong guess: clear the field, bump the attempt count, and put focus
+    // straight back in the box so the next try doesn't need an extra click.
+    setAttempts((n) => n + 1);
+    setPasswordError('Incorrect password. Try again.');
+    setPasswordInput('');
+    passwordInputRef.current?.focus();
   };
 
   const load = async () => {
@@ -86,6 +99,7 @@ export default function Admin() {
             <label htmlFor="admin-password">Admin password</label>
             <input
               id="admin-password"
+              ref={passwordInputRef}
               type="password"
               autoFocus
               value={passwordInput}
@@ -105,6 +119,7 @@ export default function Admin() {
             {passwordError && (
               <p className="rules-intro" style={{ color: '#f87171' }}>
                 {passwordError}
+                {attempts > 2 ? ` (attempt ${attempts})` : ''}
               </p>
             )}
             <button className="button button-small" type="submit">
