@@ -320,8 +320,13 @@ export default function Login() {
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: '2.25rem' }}>
             {/* Wallet login: lets anyone play straight from the website,
-                Telegram account or not. */}
-            <WalletConnect onAddress={() => {}} />
+                Telegram account or not. Deliberately NOT rendered inside the
+                Telegram Mini App — mounting it there still runs its own
+                network-switch effect against any already-connected wallet
+                on every page load, which is what was causing repeated
+                reconnect/reload attempts when opened via Telegram. Telegram
+                users get pure Telegram auth (above) with no wallet involved. */}
+            {!isTelegramMiniApp && <WalletConnect onAddress={() => {}} />}
 
             <Link
               to="/how-it-works"

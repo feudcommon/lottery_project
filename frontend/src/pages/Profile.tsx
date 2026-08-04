@@ -6,19 +6,34 @@ import api from '../api/client';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, logout } = useUserStore();
-  const [stats, setStats] = useState<any>(null);
+  const { user, logout, setUser } = useUserStore();
   const [copiedType, setCopiedType] = useState<'telegram' | 'website' | null>(null);
 
   useEffect(() => {
-    if (user) {
-      api.get('/api/user/me/stats')
-        .then(res => {
-          setStats(res.data);
-        })
-        .catch(err => console.error('Failed to fetch stats:', err));
+    let cancelled = false;
+
+    if (!user?.id) {
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [user]);
+
+    api.get('/api/user/me')
+      .then(res => {
+        if (!cancelled) {
+          setUser(res.data.user);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.error('Failed to refresh profile:', err);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, setUser]);
 
   // Two separate links so a referrer can share the right one depending on
   // where their friend will actually sign up:
@@ -26,21 +41,40 @@ export default function Profile() {
   //    the app once opened from Telegram (a plain `?ref=` on a t.me link is
   //    never delivered to the app).
   //  - Website link: a normal `?ref=` query param, read on the /login page.
-  // Both must carry `referral_code` (not the internal numeric id), since
+  // Both must carry the referral code (not the internal numeric id), since
   // that's what the backend matches new signups against.
-  const telegramReferralLink = `https://t.me/ScaiLuckyLoop_bot/app?startapp=${user?.referralCode}`;
-  const websiteReferralLink = `${window.location.origin}/login?ref=${user?.referralCode}`;
+  const referralCode = user?.referralCode || (user as any)?.referral_code || '';
+  const telegramReferralLink = `https://t.me/ScaiLuckyLoop_bot/app?startapp=${encodeURIComponent(referralCode)}`;
+  const websiteReferralLink = `${window.location.origin}/login?ref=${encodeURIComponent(referralCode)}`;
 
-  const copyToClipboard = (type: 'telegram' | 'website') => {
+  const copyToClipboard = async (type: 'telegram' | 'website') => {
     const link = type === 'telegram' ? telegramReferralLink : websiteReferralLink;
-    navigator.clipboard.writeText(link)
-      .then(() => {
-        setCopiedType(type);
-        setTimeout(() => setCopiedType(null), 2000);
-      })
-      .catch(err => {
-        console.error('Failed to copy referral link:', err);
-      });
+
+    if (!referralCode) {
+      console.error('Missing referral code for copy action');
+      return;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = link;
+        tempTextArea.setAttribute('readonly', '');
+        tempTextArea.style.position = 'fixed';
+        tempTextArea.style.opacity = '0';
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempTextArea);
+      }
+
+      setCopiedType(type);
+      window.setTimeout(() => setCopiedType(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy referral link:', err);
+    }
   };
 
   const handleLogout = () => {
@@ -224,35 +258,6 @@ export default function Profile() {
                 </button>
               </div>
             </div>
-
-            {/* Statistics Card */}
-            {stats && (
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(232, 121, 249, 0.15)',
-                borderRadius: '16px',
-                padding: '1.5rem',
-                boxShadow: '0 0 40px rgba(192, 38, 211, 0.1)',
-              }}>
-                <h2 style={{ fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#e879f9', margin: '0 0 1rem 0' }}>
-                  Statistics
-                </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div>
-                    <div style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '0.25rem' }}>Total Earned</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{stats.totalEarned} coins</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '0.25rem' }}>Tickets Purchased</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{stats.ticketsPurchased}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '0.25rem' }}>Spins Completed</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{stats.spinsCompleted}</div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Logout Button */}
             <button
