@@ -9,9 +9,37 @@ const { asyncHandler, AppError } = require("../middleware/errorHandler");
 // GET /api/admin/users
 const listUsers = asyncHandler(async (req, res) => {
   const users = db
-    .prepare("SELECT id, telegram_id, username, coins, referral_count, wallet_address, is_banned, created_at FROM users ORDER BY created_at DESC LIMIT 200")
+    .prepare("SELECT id, telegram_id, username, coins, referral_count, wallet_address, is_banned, is_admin, created_at FROM users ORDER BY created_at DESC LIMIT 200")
     .all();
   res.json({ users });
+});
+
+// POST /api/admin/users/:id/promote — grants admin access to another
+// account. This is the "give access to somebody else" mechanism: no env
+// vars, no redeploy, just an existing admin clicking a button for a user
+// they already see in this same list.
+const promoteToAdmin = asyncHandler(async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  if (!user) throw new AppError("User not found", 404);
+
+  db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(userId);
+  const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  res.json({ message: `${user.username || `User #${user.id}`} is now an admin.`, user: updated });
+});
+
+// POST /api/admin/users/:id/demote — revokes it again. Note: this only
+// clears the DB flag — if that same account is also listed in the
+// ADMIN_TELEGRAM_IDS / ADMIN_WALLET_ADDRESSES env vars, it stays an admin
+// through that allowlist until removed from the env var too.
+const demoteFromAdmin = asyncHandler(async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  if (!user) throw new AppError("User not found", 404);
+
+  db.prepare("UPDATE users SET is_admin = 0 WHERE id = ?").run(userId);
+  const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  res.json({ message: `${user.username || `User #${user.id}`} is no longer an admin.`, user: updated });
 });
 
 // GET /api/admin/tickets/:date  e.g. /api/admin/tickets/2026-06-18
@@ -93,6 +121,8 @@ const forceJackpotDraw = asyncHandler(async (req, res) => {
 
 module.exports = {
   listUsers,
+  promoteToAdmin,
+  demoteFromAdmin,
   getTicketSales,
   getPendingWithdrawals,
   approveWithdrawal,

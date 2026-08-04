@@ -82,9 +82,25 @@ function migrateWalletAddressUniqueIndex(db) {
   db.exec(`CREATE UNIQUE INDEX ${name} ON users(wallet_address) WHERE wallet_address IS NOT NULL;`);
 }
 
+// Migration 3: is_admin lets admin status be granted in-app (via the admin
+// panel's promote/demote buttons) instead of only through the
+// ADMIN_TELEGRAM_IDS / ADMIN_WALLET_ADDRESSES env vars. Unlike migration 1,
+// adding a plain new column doesn't require a table rebuild — SQLite
+// supports ALTER TABLE ADD COLUMN directly.
+function migrateIsAdminColumn(db) {
+  const info = db.prepare(`PRAGMA table_info(users)`).all();
+  const hasColumn = info.some((c) => c.name === "is_admin");
+  if (hasColumn) return; // already migrated
+
+  console.log("Migrating users table: adding is_admin column…");
+  db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;`);
+  console.log("✅ users.is_admin added");
+}
+
 function runMigrations(db) {
   migrateTelegramIdOptional(db);
   migrateWalletAddressUniqueIndex(db);
+  migrateIsAdminColumn(db);
 }
 
 module.exports = { runMigrations };

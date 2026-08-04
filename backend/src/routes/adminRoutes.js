@@ -11,6 +11,8 @@ const { requireAuth, requireAdmin } = require("../middleware/auth");
 router.use(requireAuth, requireAdmin);
 
 router.get("/users", adminController.listUsers);
+router.post("/users/:id/promote", adminController.promoteToAdmin);
+router.post("/users/:id/demote", adminController.demoteFromAdmin);
 router.get("/tickets/:date", adminController.getTicketSales);
 router.get("/withdrawals/pending", adminController.getPendingWithdrawals);
 router.post("/withdrawals/:id/approve", adminController.approveWithdrawal);

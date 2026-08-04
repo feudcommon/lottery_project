@@ -43,22 +43,28 @@ function requireAuth(req, res, next) {
 }
 
 // requireAdmin: stack this AFTER requireAuth on admin-only routes.
-// Admin status can come from either allowlist — a Telegram account doesn't
-// need a linked wallet, and a wallet-only account doesn't need Telegram.
+// Admin status can come from any of three places:
+//   - the ADMIN_TELEGRAM_IDS env var (bootstrap access, no DB write needed)
+//   - the ADMIN_WALLET_ADDRESSES env var (same, for wallet-only accounts)
+//   - the is_admin DB column, which lets an existing admin grant access to
+//     someone else in-app (see adminController promote/demote) without
+//     ever touching env vars or redeploying.
 function requireAdmin(req, res, next) {
   const config = require("../config");
   if (!req.user) {
     return res.status(403).json({ error: "Admin access required" });
   }
 
-  const isTelegramAdmin =
+  const isEnvTelegramAdmin =
     req.user.telegram_id && config.admin.telegramIds.includes(String(req.user.telegram_id));
 
-  const isWalletAdmin =
+  const isEnvWalletAdmin =
     req.user.wallet_address &&
     config.admin.walletAddresses.includes(String(req.user.wallet_address).toLowerCase());
 
-  if (!isTelegramAdmin && !isWalletAdmin) {
+  const isDbAdmin = Boolean(req.user.is_admin);
+
+  if (!isEnvTelegramAdmin && !isEnvWalletAdmin && !isDbAdmin) {
     return res.status(403).json({ error: "Admin access required" });
   }
 

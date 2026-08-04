@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS users (
   daily_coins_earned INTEGER NOT NULL DEFAULT 0,
   daily_earn_reset_at TEXT,
   is_banned INTEGER NOT NULL DEFAULT 0,
+  is_admin INTEGER NOT NULL DEFAULT 0,   -- granted in-app via the admin panel (see promote/demote), not hardcoded
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (referred_by) REFERENCES users(id),
   CHECK (telegram_id IS NOT NULL OR wallet_address IS NOT NULL)
