@@ -43,11 +43,25 @@ function requireAuth(req, res, next) {
 }
 
 // requireAdmin: stack this AFTER requireAuth on admin-only routes.
+// Admin status can come from either allowlist — a Telegram account doesn't
+// need a linked wallet, and a wallet-only account doesn't need Telegram.
 function requireAdmin(req, res, next) {
   const config = require("../config");
-  if (!req.user || !config.admin.telegramIds.includes(String(req.user.telegram_id))) {
+  if (!req.user) {
     return res.status(403).json({ error: "Admin access required" });
   }
+
+  const isTelegramAdmin =
+    req.user.telegram_id && config.admin.telegramIds.includes(String(req.user.telegram_id));
+
+  const isWalletAdmin =
+    req.user.wallet_address &&
+    config.admin.walletAddresses.includes(String(req.user.wallet_address).toLowerCase());
+
+  if (!isTelegramAdmin && !isWalletAdmin) {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
   next();
 }
 

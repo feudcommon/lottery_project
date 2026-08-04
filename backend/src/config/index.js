@@ -74,6 +74,13 @@ module.exports = {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean),
+    // Same idea as telegramIds, but for wallet-only admins (no Telegram
+    // account at all). Lowercased so comparisons match how wallet_address
+    // is stored everywhere else in the app (see utils/walletAuth.js).
+    walletAddresses: (process.env.ADMIN_WALLET_ADDRESSES || "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
   },
 
   stripe: {
