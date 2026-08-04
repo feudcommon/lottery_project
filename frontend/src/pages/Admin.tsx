@@ -2,12 +2,36 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 
+// Client-side lock screen only. This does NOT replace real auth — the
+// backend's requireAdmin check (Telegram ID / wallet / is_admin column)
+// is what actually protects the /api/admin/* routes. This is just a
+// screen so the panel isn't visibly wide open to anyone who loads /admin.
+const ADMIN_PANEL_PASSWORD = '12345678';
+const SESSION_KEY = 'scai_admin_unlocked';
+
 export default function Admin() {
+  const [unlocked, setUnlocked] = useState(
+    () => sessionStorage.getItem(SESSION_KEY) === 'true'
+  );
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
   const [users, setUsers] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [ticketCount, setTicketCount] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
   const date = new Date().toISOString().slice(0, 10);
+
+  const handleUnlock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === ADMIN_PANEL_PASSWORD) {
+      sessionStorage.setItem(SESSION_KEY, 'true');
+      setUnlocked(true);
+      setPasswordError('');
+    } else {
+      setPasswordError('Incorrect password.');
+    }
+  };
 
   const load = async () => {
     try {
@@ -29,8 +53,8 @@ export default function Admin() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    if (unlocked) load();
+  }, [unlocked]);
 
   const action = async (path: string, message: string) => {
     try {
@@ -41,6 +65,56 @@ export default function Admin() {
       setNotice(error.response?.data?.error || 'Action failed');
     }
   };
+
+  if (!unlocked) {
+    return (
+      <main className="rules-page">
+        <header>
+          <Link className="brand" to="/home">
+            SCAI <span>Admin</span>
+          </Link>
+          <Link className="button button-small" to="/home">
+            Back to game
+          </Link>
+        </header>
+
+        <p className="eyebrow">RESTRICTED OPERATIONS</p>
+        <h1>Control panel</h1>
+
+        <section className="content-section" style={{ maxWidth: 360, marginTop: 30 }}>
+          <form onSubmit={handleUnlock}>
+            <label htmlFor="admin-password">Admin password</label>
+            <input
+              id="admin-password"
+              type="password"
+              autoFocus
+              value={passwordInput}
+              onChange={(e) => {
+                setPasswordInput(e.target.value);
+                setPasswordError('');
+              }}
+              placeholder="Enter password"
+              style={{
+                display: 'block',
+                width: '100%',
+                margin: '8px 0 12px',
+                padding: '10px 12px',
+                borderRadius: 8,
+              }}
+            />
+            {passwordError && (
+              <p className="rules-intro" style={{ color: '#f87171' }}>
+                {passwordError}
+              </p>
+            )}
+            <button className="button button-small" type="submit">
+              Unlock
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="rules-page">

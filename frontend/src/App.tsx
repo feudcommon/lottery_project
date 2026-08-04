@@ -16,6 +16,7 @@ import HowItWorks from './pages/HowItWorks';
 import GameRules from './pages/GameRules';
 import FAQ from './pages/FAQ';
 import Contact from './pages/Contact';
+import Admin from './pages/Admin';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useUserStore();
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/rules" element={<GameRules />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
