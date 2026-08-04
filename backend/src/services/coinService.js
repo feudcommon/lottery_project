@@ -11,7 +11,6 @@ const crypto = require("crypto");
 const db = require("../db/connection");
 const config = require("../config");
 const { AppError } = require("../middleware/errorHandler");
-const { markReferralActiveIfNeeded } = require("./userService");
 
 const spinTransaction = db.transaction((userId) => {
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
@@ -74,14 +73,7 @@ const spinTransaction = db.transaction((userId) => {
 });
 
 function spin(userId) {
-  const result = spinTransaction(userId);
-  try {
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
-    markReferralActiveIfNeeded(user);
-  } catch (e) {
-    console.error("Referral activation failed (non-fatal):", e);
-  }
-  return result;
+  return spinTransaction(userId);
 }
 
 function getTransactionHistory(userId, limit = 50) {

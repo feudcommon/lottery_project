@@ -5,7 +5,6 @@
 const db = require("../db/connection");          // ✅ IMPORT DB FIRST
 const config = require("../config");
 const { AppError } = require("../middleware/errorHandler");
-const { markReferralActiveIfNeeded } = require("./userService");
 const jackpotService = require("./jackpotService");
 
 // ─── PATCH ──────────────────────────────────────────────────────────────────
@@ -165,17 +164,7 @@ if (jackpotContribution > 0) {
 // ✅ Pass slotNumber to transaction
 function buyTicket(userId, drawDate, slotNumber) {
   const date = drawDate || todayDateString();
-  const ticket = buyTicketTransaction(userId, date, slotNumber);
-
-  // Outside the critical transaction: mark referral active (non-blocking)
-  try {
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
-    markReferralActiveIfNeeded(user);
-  } catch (e) {
-    console.error("Referral activation failed (non-fatal):", e);
-  }
-
-  return ticket;
+  return buyTicketTransaction(userId, date, slotNumber);
 }
 
 function getMyTicketsForDate(userId, drawDate) {

@@ -14,8 +14,45 @@ function generateReferralCode() {
 }
 
 /**
- * Finds an existing user by telegram_id, or creates one.
- * Handles referral attribution on first signup only.
+ * Credits a referrer's coins + referral_count the moment a referred
+ * account is created. Guarded so it can only ever fire once per
+ * referred user (checked via a coin_transactions row keyed on the new
+ * user's id), same guard style as the old "first play" version — just
+ * triggered at signup instead of at first spin/ticket.
+ *
+ * NOTE: crediting on signup (rather than on first meaningful action)
+ * means someone can farm referral bonuses by creating throwaway wallet
+ * accounts through their own link without ever playing. If that shows
+ * up in practice, the fix is either back to gating on first play, or
+ * adding an anti-abuse check here (e.g. per-IP/device signup limits).
+ */
+function creditReferralOnSignup(referrerId, newUserId) {
+  if (!referrerId) return;
+
+  const alreadyCredited = db
+    .prepare("SELECT 1 FROM coin_transactions WHERE user_id = ? AND reason = 'referral_bonus_for' AND reference_id = ?")
+    .get(referrerId, newUserId);
+  if (alreadyCredited) return;
+
+  const referrer = db.prepare("SELECT * FROM users WHERE id = ?").get(referrerId);
+  if (!referrer || referrer.is_banned) return;
+
+  const newBalance = referrer.coins + config.game.referralBonus;
+
+  db.prepare("UPDATE users SET coins = ?, referral_count = referral_count + 1 WHERE id = ?").run(
+    newBalance,
+    referrer.id
+  );
+
+  db.prepare(`
+    INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
+    VALUES (?, ?, 'referral_bonus_for', ?, ?)
+  `).run(referrer.id, config.game.referralBonus, newUserId, newBalance);
+}
+
+/**
+ * Finds an existing user by telegram_id, or creates one. Referral credit
+ * to the referrer happens immediately on account creation.
  */
 function findOrCreateUser({ telegramId, username, referralCode, deviceFingerprint }) {
   const existing = db.prepare("SELECT * FROM users WHERE telegram_id = ?").get(telegramId);
@@ -37,44 +74,9 @@ function findOrCreateUser({ telegramId, username, referralCode, deviceFingerprin
 
   const newUser = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
 
-  // Note: we do NOT credit the referral_count or bonus yet. Per the risk
-  // management rules in the spec, a referral only "counts" once the
-  // referred user actually plays the game (see markReferralActive below).
-  // This stops the "fake referral by just clicking a link" exploit.
+  if (referredBy) creditReferralOnSignup(referredBy, newUser.id);
 
   return newUser;
-}
-
-/**
- * Call this the first time a referred user does something meaningful
- * (e.g. their first spin or first ticket purchase). This is what makes
- * a referral "active" and credits the referrer.
- */
-function markReferralActiveIfNeeded(user) {
-  if (!user.referred_by) return;
-
-  // Use a flag column trick: we check coin_transactions for whether we've
-  // already paid this referral bonus, so it only fires once.
-  const alreadyCredited = db
-    .prepare("SELECT 1 FROM coin_transactions WHERE user_id = ? AND reason = 'referral_bonus_for' AND reference_id = ?")
-    .get(user.referred_by, user.id);
-
-  if (alreadyCredited) return;
-
-  const referrer = db.prepare("SELECT * FROM users WHERE id = ?").get(user.referred_by);
-  if (!referrer || referrer.is_banned) return;
-
-  const newBalance = referrer.coins + config.game.referralBonus;
-
-  db.prepare("UPDATE users SET coins = ?, referral_count = referral_count + 1 WHERE id = ?").run(
-    newBalance,
-    referrer.id
-  );
-
-  db.prepare(`
-    INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
-    VALUES (?, ?, 'referral_bonus_for', ?, ?)
-  `).run(referrer.id, config.game.referralBonus, user.id, newBalance);
 }
 
 /**
@@ -101,7 +103,11 @@ function findOrCreateUserByWallet({ walletAddress, referralCode }) {
   `);
   const result = insert.run(walletAddress, shortAddress, myReferralCode, referredBy);
 
-  return db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+  const newUser = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+
+  if (referredBy) creditReferralOnSignup(referredBy, newUser.id);
+
+  return newUser;
 }
 
 /**
@@ -154,7 +160,12 @@ module.exports = {
   findOrCreateUser,
   findOrCreateUserByWallet,
   linkWalletToUser,
-  markReferralActiveIfNeeded,
+  creditReferralOnSignup,
+  // Kept as a no-op alias: referral crediting now happens at signup
+  // (creditReferralOnSignup, called from within this file), not at first
+  // play. This avoids a hard crash for any other file still importing the
+  // old name — it does nothing and is safe to remove once nothing calls it.
+  markReferralActiveIfNeeded: () => {},
   getUserById,
   getPublicProfile,
 };
