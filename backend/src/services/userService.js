@@ -126,6 +126,15 @@ function getUserById(id) {
 }
 
 function getPublicProfile(user) {
+  // Mirrors the exact same three checks as requireAdmin — kept in sync so
+  // "can this user reach /admin" and "does this user see the Admin button"
+  // never disagree with each other.
+  const isEnvTelegramAdmin =
+    user.telegram_id && config.admin.telegramIds.includes(String(user.telegram_id));
+  const isEnvWalletAdmin =
+    user.wallet_address && config.admin.walletAddresses.includes(String(user.wallet_address).toLowerCase());
+  const isAdmin = Boolean(isEnvTelegramAdmin || isEnvWalletAdmin || user.is_admin);
+
   return {
     id: user.id,
     username: user.username,
@@ -135,6 +144,7 @@ function getPublicProfile(user) {
     walletAddress: user.wallet_address,
     hasTelegram: Boolean(user.telegram_id),
     hasWallet: Boolean(user.wallet_address),
+    isAdmin,
     withdrawUnlocked:
       user.coins >= config.withdrawal.minCoins && user.referral_count >= config.withdrawal.minReferrals,
   };

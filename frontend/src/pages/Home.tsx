@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useBalance } from '../hooks/useBalance';
+import { useUserStore } from '../store/userStore';
 import api from '../api/client';
 
 export default function Home() {
   const navigate = useNavigate();
   const { coins, refetch } = useBalance();
+  const isAdmin = useUserStore((state) => state.user?.isAdmin ?? false);
   const [spinLoading, setSpinLoading] = useState(false);
   const [spinMessage, setSpinMessage] = useState<string | null>(null);
 
@@ -151,6 +153,11 @@ export default function Home() {
             { label:'Leaderboard', href:'/leaderboard', color:'#c026d3' },
             { label:'Jackpot', href:'/jackpot', color:'#9333ea' },
             { label:'Profile', href:'/profile', color:'rgba(255,255,255,0.08)' },
+            // Only ever shown to accounts the backend actually recognizes as
+            // admin (see userService.getPublicProfile) — hiding the button
+            // for everyone else is a UX nicety, not the real access control,
+            // which lives entirely on the backend regardless of this.
+            ...(isAdmin ? [{ label: 'Admin', href: '/admin', color: '#e879f9' }] : []),
           ].map((item) => (
             <Link key={item.href} to={item.href} style={{
               display:'block',padding:'1rem',borderRadius:16,textAlign:'center',

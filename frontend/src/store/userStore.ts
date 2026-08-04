@@ -7,6 +7,7 @@ interface User {
   coins: number;
   referralCode: string;
   referralCount: number;
+  isAdmin: boolean;
   isBanned: boolean;
   createdAt: string;
 }
