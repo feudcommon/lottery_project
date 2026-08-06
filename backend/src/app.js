@@ -17,6 +17,7 @@ const jackpotRoutes = require("./routes/jackpotRoutes");
 const depositRoutes = require("./routes/depositRoutes");
 const publicRoutes = require("./routes/publicRoutes");
 const stripeRoutes = require("./routes/stripeRoutes");
+const debugRoutes = require("./routes/debugRoutes");
 
 function createApp() {
   const app = express();
@@ -53,6 +54,7 @@ function createApp() {
   app.use("/api/deposit", depositRoutes);
   app.use("/api/public", publicRoutes);
   app.use("/api/stripe", stripeRoutes);
+  app.use("/api/debug", debugRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
