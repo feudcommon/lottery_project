@@ -65,12 +65,37 @@ function formatCompactNumber(n: number): string {
  *    passes that as `start_param` inside `Telegram.WebApp.initDataUnsafe`,
  *    not as a normal URL query param.
  */
+const REFERRAL_STORAGE_KEY = 'pendingReferralCode';
+
 function getReferralCodeFromContext(): string | undefined {
   if (typeof window === 'undefined') return undefined;
+
   const fromUrl = new URLSearchParams(window.location.search).get('ref');
-  if (fromUrl) return fromUrl;
   const tg = (window as any).Telegram?.WebApp;
-  return tg?.initDataUnsafe?.start_param || undefined;
+  const fromTelegram = tg?.initDataUnsafe?.start_param || undefined;
+  const found = fromUrl || fromTelegram;
+
+  if (found) {
+    // Persist immediately (synchronously, before any redirect can happen)
+    // so the code survives a full page reload — e.g. a stale authToken
+    // causing an instant /home redirect -> 401 -> window.location.href
+    // back to a bare /login with no ?ref= on it. sessionStorage is scoped
+    // per-tab and cleared when the tab closes, which is fine here since
+    // we only need it to outlive this one signup attempt.
+    try {
+      sessionStorage.setItem(REFERRAL_STORAGE_KEY, found);
+    } catch {
+      // sessionStorage can throw in some locked-down browser contexts
+      // (e.g. certain in-app webviews) — never let that block login.
+    }
+    return found;
+  }
+
+  try {
+    return sessionStorage.getItem(REFERRAL_STORAGE_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export default function Login() {

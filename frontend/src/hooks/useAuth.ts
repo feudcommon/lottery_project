@@ -35,6 +35,11 @@ export const useAuth = () => {
       const { token, user } = response.data;
       setToken(token);
       setUser(user);
+      try {
+        sessionStorage.removeItem('pendingReferralCode');
+      } catch {
+        // non-fatal if sessionStorage is unavailable
+      }
 
       window.location.href = '/home';
     } catch (err) {
@@ -53,6 +58,11 @@ export const useAuth = () => {
       const response = await api.post('/api/auth/telegram-browser', { ...telegramUser, referralCode });
       setToken(response.data.token);
       setUser(response.data.user);
+      try {
+        sessionStorage.removeItem('pendingReferralCode');
+      } catch {
+        // non-fatal if sessionStorage is unavailable
+      }
       window.location.href = '/home';
     } catch (err: any) {
       setError(err.response?.data?.error || 'Telegram browser login failed');

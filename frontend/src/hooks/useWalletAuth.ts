@@ -46,6 +46,11 @@ export function useWalletAuth() {
         const { data } = await api.post('/api/auth/wallet', { address, signature, referralCode });
         setToken(data.token);
         setUser(data.user);
+        try {
+          sessionStorage.removeItem('pendingReferralCode');
+        } catch {
+          // non-fatal if sessionStorage is unavailable
+        }
         window.location.href = '/home';
       } catch (err: any) {
         setError(err.response?.data?.error || err.message || 'Wallet login failed');
