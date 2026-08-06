@@ -28,6 +28,21 @@ router.use((req, res, next) => {
   next();
 });
 
+// Lists users so you can inspect referral state without shell/sqlite3
+// access. Read-only, same guard as everything else in this file.
+router.get(
+  "/users",
+  asyncHandler(async (req, res) => {
+    const users = db
+      .prepare(
+        `SELECT id, wallet_address, telegram_id, username, referral_code, referred_by, referral_count, coins, created_at
+         FROM users ORDER BY created_at DESC LIMIT 50`
+      )
+      .all();
+    res.json({ users });
+  })
+);
+
 // Deletes a user row (and anything referencing it) by wallet address or
 // telegram_id, so the identity looks brand-new to findOrCreateUser /
 // findOrCreateUserByWallet on the next signup attempt.
