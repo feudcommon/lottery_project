@@ -12,8 +12,8 @@ const db = require("../db/connection");
 const config = require("../config");
 const { AppError } = require("../middleware/errorHandler");
 
-const spinTransaction = db.transaction((userId) => {
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+const spinTransaction = db.transaction(async (tx, userId) => {
+  const user = await tx.prepare("SELECT * FROM users WHERE id = ?").get(userId);
   if (!user) throw new AppError("User not found", 404);
   if (user.is_banned) throw new AppError("Account suspended", 403);
 
@@ -25,7 +25,7 @@ const spinTransaction = db.transaction((userId) => {
   let dailyEarned = user.daily_coins_earned;
   if (isNewDay) {
     dailyEarned = 0;
-    db.prepare("UPDATE users SET daily_coins_earned = 0, daily_earn_reset_at = datetime('now') WHERE id = ?").run(
+    await tx.prepare("UPDATE users SET daily_coins_earned = 0, daily_earn_reset_at = datetime('now') WHERE id = ?").run(
       userId
     );
   }
@@ -58,13 +58,13 @@ const spinTransaction = db.transaction((userId) => {
 
   const newBalance = user.coins + cappedReward;
 
-  db.prepare(`
+  await tx.prepare(`
     UPDATE users
     SET coins = ?, last_spin_at = datetime('now'), daily_coins_earned = daily_coins_earned + ?
     WHERE id = ?
   `).run(newBalance, cappedReward, userId);
 
-  db.prepare(`
+  await tx.prepare(`
     INSERT INTO coin_transactions (user_id, amount, reason, balance_after)
     VALUES (?, ?, 'spin', ?)
   `).run(userId, cappedReward, newBalance);
@@ -72,11 +72,11 @@ const spinTransaction = db.transaction((userId) => {
   return { reward: cappedReward, newBalance };
 });
 
-function spin(userId) {
+async function spin(userId) {
   return spinTransaction(userId);
 }
 
-function getTransactionHistory(userId, limit = 50) {
+async function getTransactionHistory(userId, limit = 50) {
   return db
     .prepare("SELECT * FROM coin_transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?")
     .all(userId, limit);

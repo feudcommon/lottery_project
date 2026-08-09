@@ -34,7 +34,7 @@ async function creditScaiDeposit(userId, txHash) {
     throw new AppError("Deposits are not configured.", 503);
   }
 
-  const existing = db.prepare("SELECT * FROM onchain_deposits WHERE tx_hash = ?").get(txHash);
+  const existing = await db.prepare("SELECT * FROM onchain_deposits WHERE tx_hash = ?").get(txHash);
   if (existing) {
     throw new AppError("This transaction has already been credited.", 409);
   }
@@ -77,20 +77,20 @@ if (receipt.status !== 1) {
     throw new AppError("Deposit amount too small to credit any coins.", 400);
   }
 
-  const result = db.transaction(() => {
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  const result = await db.transaction(async (tx) => {
+    const user = await tx.prepare("SELECT * FROM users WHERE id = ?").get(userId);
     if (!user) throw new AppError("User not found", 404);
 
     const newBalance = user.coins + coinsCredited;
-    db.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, userId);
+    await tx.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, userId);
 
-    const insert = db.prepare(`
+    const insert = tx.prepare(`
       INSERT INTO onchain_deposits (user_id, tx_hash, amount_scai_wei, coins_credited)
       VALUES (?, ?, ?, ?)
     `);
-    const inserted = insert.run(userId, txHash, amountWei.toString(), coinsCredited);
+    const inserted = await insert.run(userId, txHash, amountWei.toString(), coinsCredited);
 
-    db.prepare(`
+    await tx.prepare(`
       INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
       VALUES (?, ?, 'onchain_deposit', ?, ?)
     `).run(userId, coinsCredited, inserted.lastInsertRowid, newBalance);
@@ -101,7 +101,7 @@ if (receipt.status !== 1) {
   return result;
 }
 
-function getMyDeposits(userId) {
+async function getMyDeposits(userId) {
   return db
     .prepare("SELECT * FROM onchain_deposits WHERE user_id = ? ORDER BY created_at DESC")
     .all(userId);

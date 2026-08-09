@@ -1,41 +1,15 @@
 // src/db/init.js
 //
-// This script creates the SQLite database file and all tables.
-// Run it once with: npm run init-db
+// Creates all tables on the configured Turso database (idempotent — safe
+// to run on every boot). Exports an async `initDb()` instead of running
+// at require-time, since talking to Turso means every statement is a
+// network call.
 //
-// WHY SQLite for this project:
-// - Zero setup (no separate DB server to install/manage)
-// - File-based, so it's trivial to back up or inspect
-// - better-sqlite3 is synchronous, which actually makes the lottery
-//   draw logic SAFER (no race conditions from async DB calls mid-transaction)
-// - You can migrate to Postgres/MySQL later — the SQL here is close to standard ANSI SQL
-const path = require("path");
-const fs = require("fs");
-const { DatabaseSync } = require("node:sqlite");
-const { attachCompat } = require("./sqliteCompat");
+// Run standalone with: npm run init-db
+const db = require("./connection");
+const { runMigrations } = require("./migrate");
 
-const DB_PATH =
-  process.env.DB_PATH || path.join(__dirname, "..", "..", "data", "lucky_loop.db");
-
-if (process.env.NODE_ENV === "production" && !process.env.DB_PATH) {
-  throw new Error(
-    "DB_PATH must be set in production. Local ./data is ephemeral on cloud platforms.",
-  );
-}
-
-// Make sure the /data folder exists
-const dataDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const db = attachCompat(new DatabaseSync(DB_PATH));
-
-// WAL mode = better concurrency (readers don't block writers)
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
-
-db.exec(`
+const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   telegram_id TEXT UNIQUE,          -- nullable: wallet-only players have no Telegram identity
@@ -153,7 +127,7 @@ CREATE TABLE IF NOT EXISTS onchain_deposits (
 
 CREATE INDEX IF NOT EXISTS idx_onchain_deposits_user ON onchain_deposits(user_id);
 
--- NEW: fiat (Stripe) deposits. One row per checkout session; a session only
+-- fiat (Stripe) deposits. One row per checkout session; a session only
 -- ever credits coins once (see stripeService.creditFiatDeposit), keyed on
 -- the UNIQUE stripe_session_id so a duplicated/replayed webhook is a no-op.
 CREATE TABLE IF NOT EXISTS fiat_deposits (
@@ -171,13 +145,28 @@ CREATE TABLE IF NOT EXISTS fiat_deposits (
 
 CREATE INDEX IF NOT EXISTS idx_fiat_deposits_user ON fiat_deposits(user_id);
 CREATE INDEX IF NOT EXISTS idx_fiat_deposits_status ON fiat_deposits(status);
-`);
+`;
 
-// Handles schema changes that CREATE TABLE IF NOT EXISTS can't express
-// (e.g. relaxing a NOT NULL constraint on an existing column). Safe to run
-// every boot - each step checks whether it's already applied first.
-const { runMigrations } = require("./migrate");
-runMigrations(db);
+async function initDb() {
+  await db.pragma("foreign_keys = ON");
+  await db.exec(SCHEMA_SQL);
 
-console.log(`✅ Database initialized at: ${DB_PATH}`);
-db.close();
+  // Handles schema changes that CREATE TABLE IF NOT EXISTS can't express
+  // (e.g. relaxing a NOT NULL constraint on an existing column). Safe to
+  // run every boot - each step checks whether it's already applied first.
+  await runMigrations(db);
+
+  console.log(`✅ Database initialized (Turso: ${process.env.TURSO_DATABASE_URL})`);
+}
+
+module.exports = { initDb };
+
+// Allow `npm run init-db` / `node src/db/init.js` to run this standalone.
+if (require.main === module) {
+  initDb()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("FATAL: Database initialization failed:", err);
+      process.exit(1);
+    });
+}

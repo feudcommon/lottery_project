@@ -10,13 +10,13 @@ const { globalLimiter } = require("../middleware/rateLimiter");
 
 // Optional auth: attaches req.user if a valid Bearer token is present,
 // but never blocks the request if it's missing/invalid.
-function optionalAuth(req, res, next) {
+async function optionalAuth(req, res, next) {
   const header = req.headers.authorization || "";
   const [scheme, token] = header.split(" ");
   if (scheme === "Bearer" && token) {
     try {
       const payload = verifyToken(token);
-      const user = db.prepare("SELECT * FROM users WHERE id = ?").get(payload.sub);
+      const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(payload.sub);
       if (user) req.user = user;
     } catch {
       // ignore invalid token, proceed unauthenticated
@@ -25,6 +25,8 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-router.get("/", globalLimiter, optionalAuth, getLeaderboard);
+router.get("/", globalLimiter, (req, res, next) => {
+  optionalAuth(req, res, next).catch(next);
+}, getLeaderboard);
 
 module.exports = router;

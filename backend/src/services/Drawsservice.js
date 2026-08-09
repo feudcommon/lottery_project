@@ -4,8 +4,8 @@ const db = require("../db/connection");
 /**
  * Get draw history - last N days
  */
-function getDrawHistory(days = 7) {
-  const draws = db.prepare(`
+async function getDrawHistory(days = 7) {
+  const draws = await db.prepare(`
     SELECT * FROM draws 
     ORDER BY draw_date DESC 
     LIMIT ?
@@ -17,7 +17,7 @@ function getDrawHistory(days = 7) {
 /**
  * Get today's draw
  */
-function getTodaysDraw() {
+async function getTodaysDraw() {
   // ─── PATCH ──────────────────────────────────────────────────────────────
   // Was: new Date().toISOString().slice(0, 10) — always UTC, regardless of
   // CRON_TIMEZONE. That disagreed with the Asia/Kolkata-scheduled cron jobs
@@ -28,7 +28,7 @@ function getTodaysDraw() {
   const tz = process.env.CRON_TIMEZONE || "UTC";
   const today = new Date().toLocaleDateString("en-CA", { timeZone: tz }); // 'YYYY-MM-DD' in configured tz
 
-  const draw = db.prepare(`
+  const draw = await db.prepare(`
     SELECT * FROM draws 
     WHERE draw_date = ?
   `).get(today);
@@ -39,7 +39,7 @@ function getTodaysDraw() {
 /**
  * Get draw by date
  */
-function getDrawByDate(date) {
+async function getDrawByDate(date) {
   return db.prepare(`
     SELECT * FROM draws 
     WHERE draw_date = ?

@@ -16,12 +16,12 @@ const { AppError } = require("../middleware/errorHandler");
 // handles the tickets.length === 0 case fine — it marks the draw 'drawn'
 // with winner: null).
 // ────────────────────────────────────────────────────────────────────────────
-function closeSalesAndCommitSeed(drawDate) {
-  let draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+async function closeSalesAndCommitSeed(drawDate) {
+  let draw = await db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
 
   if (!draw) {
-    db.prepare("INSERT INTO draws (draw_date, status) VALUES (?, 'open')").run(drawDate);
-    draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+    await db.prepare("INSERT INTO draws (draw_date, status) VALUES (?, 'open')").run(drawDate);
+    draw = await db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
     console.log(`[Lottery] No tickets sold for ${drawDate} — created empty draw row so it can still be closed/drawn.`);
   }
 
@@ -33,7 +33,7 @@ function closeSalesAndCommitSeed(drawDate) {
   const seed = crypto.randomBytes(32).toString("hex");
   const seedHash = crypto.createHash("sha256").update(seed).digest("hex");
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE draws
     SET status = 'closed', random_seed = ?, server_seed_hash = ?, closed_at = datetime('now')
     WHERE draw_date = ?
@@ -50,8 +50,8 @@ function seedToIndex(seed, max) {
   return intVal % max;
 }
 
-const runDrawTransaction = db.transaction((drawDate) => {
-  const draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+const runDrawTransaction = db.transaction(async (tx, drawDate) => {
+  const draw = await tx.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
   if (!draw) throw new AppError(`No draw found for ${drawDate}`, 404);
   if (draw.status === "drawn") {
     throw new AppError(`Draw for ${drawDate} already completed`, 400);
@@ -60,12 +60,12 @@ const runDrawTransaction = db.transaction((drawDate) => {
     throw new AppError(`Draw for ${drawDate} must be closed before drawing (current: ${draw.status})`, 400);
   }
 
-  const tickets = db
+  const tickets = await tx
     .prepare("SELECT * FROM tickets WHERE draw_date = ? ORDER BY ticket_number")
     .all(drawDate);
 
   if (tickets.length === 0) {
-    db.prepare("UPDATE draws SET status = 'drawn', drawn_at = datetime('now') WHERE draw_date = ?").run(
+    await tx.prepare("UPDATE draws SET status = 'drawn', drawn_at = datetime('now') WHERE draw_date = ?").run(
       drawDate
     );
     console.log(`[Lottery] No tickets sold for ${drawDate}, no winner.`);
@@ -75,17 +75,17 @@ const runDrawTransaction = db.transaction((drawDate) => {
   const winningIndex = seedToIndex(draw.random_seed, tickets.length);
   const winningTicket = tickets[winningIndex];
 
-  const winner = db.prepare("SELECT * FROM users WHERE id = ?").get(winningTicket.user_id);
+  const winner = await tx.prepare("SELECT * FROM users WHERE id = ?").get(winningTicket.user_id);
   const newBalance = winner.coins + config.game.winnerReward;
 
-  db.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, winner.id);
+  await tx.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, winner.id);
 
-  db.prepare(`
+  await tx.prepare(`
     INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
     VALUES (?, ?, 'lottery_win', ?, ?)
   `).run(winner.id, config.game.winnerReward, draw.id, newBalance);
 
-  db.prepare(`
+  await tx.prepare(`
     UPDATE draws
     SET status = 'drawn', winner_user_id = ?, winner_ticket_id = ?, reward_amount = ?, drawn_at = datetime('now')
     WHERE draw_date = ?
@@ -106,19 +106,19 @@ const runDrawTransaction = db.transaction((drawDate) => {
   };
 });
 
-function runDraw(drawDate) {
+async function runDraw(drawDate) {
   return runDrawTransaction(drawDate);
 }
 
-function verifyDrawFairness(drawDate) {
-  const draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+async function verifyDrawFairness(drawDate) {
+  const draw = await db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
   if (!draw || !draw.random_seed) {
     throw new AppError("Draw not found or not yet completed", 404);
   }
   const recomputedHash = crypto.createHash("sha256").update(draw.random_seed).digest("hex");
   const hashMatches = recomputedHash === draw.server_seed_hash;
 
-  const tickets = db
+  const tickets = await db
     .prepare("SELECT * FROM tickets WHERE draw_date = ? ORDER BY ticket_number")
     .all(drawDate);
   const recomputedIndex = tickets.length > 0 ? seedToIndex(draw.random_seed, tickets.length) : null;
@@ -134,17 +134,17 @@ function verifyDrawFairness(drawDate) {
   };
 }
 
-function getDraw(drawDate) {
+async function getDraw(drawDate) {
   return db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
 }
 
-function getDrawHistory(days = 7) {
-  const draws = db.prepare(`
+async function getDrawHistory(days = 7) {
+  const draws = await db.prepare(`
     SELECT * FROM draws 
     ORDER BY draw_date DESC 
     LIMIT ?
   `).all(days);
-  
+
   return draws || [];
 }
 module.exports = {

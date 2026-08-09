@@ -1,38 +1,48 @@
 // src/db/migrate.js
 //
 // Schema migrations that can't be expressed as `CREATE TABLE IF NOT EXISTS`
-// (SQLite has no ALTER COLUMN, so relaxing a NOT NULL constraint means
-// rebuilding the table). Everything here is written to be safe to run on
-// every boot against a database that may already have real user data:
+// (SQLite/libSQL has no ALTER COLUMN, so relaxing a NOT NULL constraint
+// means rebuilding the table). Everything here is written to be safe to
+// run on every boot against a database that may already have real user
+// data:
 //   - each migration checks whether it's already applied before touching
 //     anything
 //   - the rebuild runs inside a single transaction with foreign_keys OFF,
 //     so either the whole thing lands or nothing does
 //
-// Run automatically from db/init.js on every server start.
+// Run automatically from db/init.js on every server start. All queries
+// here go over the network to Turso, so every step is async.
 
-function columnIsNotNull(db, table, column) {
-  const info = db.prepare(`PRAGMA table_info(${table})`).all();
+async function columnIsNotNull(db, table, column) {
+  const info = await db.prepare(`PRAGMA table_info(${table})`).all();
   const col = info.find((c) => c.name === column);
   return col ? col.notnull === 1 : false;
 }
 
-function indexExists(db, name) {
-  return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name = ?").get(name);
+async function indexExists(db, name) {
+  const row = await db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name = ?")
+    .get(name);
+  return !!row;
+}
+
+async function hasColumn(db, table, column) {
+  const info = await db.prepare(`PRAGMA table_info(${table})`).all();
+  return info.some((c) => c.name === column);
 }
 
 // Migration 1: telegram_id must become optional so a user can exist with
 // only a wallet_address (direct website play, no Telegram at all).
-function migrateTelegramIdOptional(db) {
-  if (!columnIsNotNull(db, "users", "telegram_id")) return; // already migrated
+async function migrateTelegramIdOptional(db) {
+  if (!(await columnIsNotNull(db, "users", "telegram_id"))) return; // already migrated
 
   console.log("Migrating users table: making telegram_id optional…");
 
-  const wasForeignKeysOn = db.pragma("foreign_keys", { simple: true }) === 1;
-  if (wasForeignKeysOn) db.pragma("foreign_keys = OFF");
+  const wasForeignKeysOn = (await db.pragma("foreign_keys", { simple: true })) === 1;
+  if (wasForeignKeysOn) await db.pragma("foreign_keys = OFF");
 
-  const migration = db.transaction(() => {
-    db.exec(`
+  const migration = db.transaction(async (tx) => {
+    await tx.exec(`
       CREATE TABLE users_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         telegram_id TEXT UNIQUE,
@@ -63,44 +73,41 @@ function migrateTelegramIdOptional(db) {
     `);
   });
 
-  migration();
+  await migration();
 
-  if (wasForeignKeysOn) db.pragma("foreign_keys = ON");
+  if (wasForeignKeysOn) await db.pragma("foreign_keys = ON");
 
   console.log("✅ users.telegram_id is now optional");
 }
 
 // Migration 2: wallet_address needs to be a real identity column, unique
 // whenever it's set (but multiple NULLs are fine — most users still won't
-// have a linked wallet). A partial unique index is the SQLite way to do
-// "unique, but only when not null".
-function migrateWalletAddressUniqueIndex(db) {
+// have a linked wallet). A partial unique index is the SQLite/libSQL way
+// to do "unique, but only when not null".
+async function migrateWalletAddressUniqueIndex(db) {
   const name = "idx_users_wallet_address_unique";
-  if (indexExists(db, name)) return;
+  if (await indexExists(db, name)) return;
 
   console.log("Adding unique index on users.wallet_address…");
-  db.exec(`CREATE UNIQUE INDEX ${name} ON users(wallet_address) WHERE wallet_address IS NOT NULL;`);
+  await db.exec(`CREATE UNIQUE INDEX ${name} ON users(wallet_address) WHERE wallet_address IS NOT NULL;`);
 }
 
 // Migration 3: is_admin lets admin status be granted in-app (via the admin
 // panel's promote/demote buttons) instead of only through the
 // ADMIN_TELEGRAM_IDS / ADMIN_WALLET_ADDRESSES env vars. Unlike migration 1,
-// adding a plain new column doesn't require a table rebuild — SQLite
-// supports ALTER TABLE ADD COLUMN directly.
-function migrateIsAdminColumn(db) {
-  const info = db.prepare(`PRAGMA table_info(users)`).all();
-  const hasColumn = info.some((c) => c.name === "is_admin");
-  if (hasColumn) return; // already migrated
+// adding a plain new column doesn't require a table rebuild.
+async function migrateIsAdminColumn(db) {
+  if (await hasColumn(db, "users", "is_admin")) return; // already migrated
 
   console.log("Migrating users table: adding is_admin column…");
-  db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;`);
+  await db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;`);
   console.log("✅ users.is_admin added");
 }
 
-function runMigrations(db) {
-  migrateTelegramIdOptional(db);
-  migrateWalletAddressUniqueIndex(db);
-  migrateIsAdminColumn(db);
+async function runMigrations(db) {
+  await migrateTelegramIdOptional(db);
+  await migrateWalletAddressUniqueIndex(db);
+  await migrateIsAdminColumn(db);
 }
 
 module.exports = { runMigrations };

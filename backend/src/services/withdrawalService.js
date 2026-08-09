@@ -38,7 +38,7 @@ async function requestWithdrawal(userId, walletAddress, amountCoins) {
   }
 
   // Load user
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) throw new AppError('User not found', 404);
   if (user.is_banned) throw new AppError('Account suspended', 403);
 
@@ -74,18 +74,18 @@ async function requestWithdrawal(userId, walletAddress, amountCoins) {
   console.log('Blockchain confirmed. Recording in database...');
 
   // Deduct coins and record withdrawal atomically
-  const record = db.transaction(() => {
+  const record = await db.transaction(async (tx) => {
     const newBalance = user.coins - amountCoins;
 
-    db.prepare('UPDATE users SET coins = ? WHERE id = ?').run(newBalance, userId);
+    await tx.prepare('UPDATE users SET coins = ? WHERE id = ?').run(newBalance, userId);
 
-    const insert = db.prepare(`
+    const insert = tx.prepare(`
       INSERT INTO withdrawals (user_id, coins_spent, token_amount, wallet_address, tx_hash, status, processed_at)
       VALUES (?, ?, ?, ?, ?, 'completed', datetime('now'))
     `);
-    const result = insert.run(userId, amountCoins, tokenAmount, walletAddress, blockchainResult.transferHash);
+    const result = await insert.run(userId, amountCoins, tokenAmount, walletAddress, blockchainResult.transferHash);
 
-    db.prepare(`
+    await tx.prepare(`
       INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
       VALUES (?, ?, 'withdrawal', ?, ?)
     `).run(userId, -amountCoins, result.lastInsertRowid, newBalance);
@@ -106,7 +106,7 @@ async function requestWithdrawal(userId, walletAddress, amountCoins) {
 
 // ─── User: get own withdrawal history ─────────────────────────────────────────
 
-function getMyWithdrawals(userId) {
+async function getMyWithdrawals(userId) {
   return db
     .prepare('SELECT * FROM withdrawals WHERE user_id = ? ORDER BY requested_at DESC')
     .all(userId);
@@ -114,7 +114,7 @@ function getMyWithdrawals(userId) {
 
 // ─── Admin: list pending withdrawals ──────────────────────────────────────────
 
-function listPendingWithdrawals() {
+async function listPendingWithdrawals() {
   return db.prepare(`
     SELECT w.*, u.username, u.telegram_id
     FROM withdrawals w
@@ -126,8 +126,8 @@ function listPendingWithdrawals() {
 
 // ─── Admin: manually mark as sent (fallback if auto blockchain fails) ──────────
 
-function markWithdrawalSent(withdrawalId, txHash) {
-  const result = db.prepare(`
+async function markWithdrawalSent(withdrawalId, txHash) {
+  const result = await db.prepare(`
     UPDATE withdrawals
     SET status = 'sent', tx_hash = ?, processed_at = datetime('now')
     WHERE id = ? AND status = 'pending'
@@ -141,22 +141,22 @@ function markWithdrawalSent(withdrawalId, txHash) {
 
 // ─── Admin: reject and refund coins ───────────────────────────────────────────
 
-function rejectWithdrawal(withdrawalId, reason) {
-  const withdrawal = db.prepare('SELECT * FROM withdrawals WHERE id = ?').get(withdrawalId);
+async function rejectWithdrawal(withdrawalId, reason) {
+  const withdrawal = await db.prepare('SELECT * FROM withdrawals WHERE id = ?').get(withdrawalId);
   if (!withdrawal || withdrawal.status !== 'pending') {
     throw new AppError('Withdrawal not found or already processed', 404);
   }
 
-  db.transaction(() => {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(withdrawal.user_id);
+  await db.transaction(async (tx) => {
+    const user = await tx.prepare('SELECT * FROM users WHERE id = ?').get(withdrawal.user_id);
     const newBalance = user.coins + withdrawal.coins_spent;
 
-    db.prepare('UPDATE users SET coins = ? WHERE id = ?').run(newBalance, user.id);
-    db.prepare(`
+    await tx.prepare('UPDATE users SET coins = ? WHERE id = ?').run(newBalance, user.id);
+    await tx.prepare(`
       INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
       VALUES (?, ?, 'withdrawal_refund', ?, ?)
     `).run(user.id, withdrawal.coins_spent, withdrawalId, newBalance);
-    db.prepare(`
+    await tx.prepare(`
       UPDATE withdrawals SET status = 'rejected', processed_at = datetime('now') WHERE id = ?
     `).run(withdrawalId);
   })();

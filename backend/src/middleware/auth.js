@@ -13,7 +13,7 @@
 const { verifyToken } = require("../utils/jwt");
 const db = require("../db/connection");
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
   const [scheme, token] = header.split(" ");
 
@@ -30,7 +30,12 @@ function requireAuth(req, res, next) {
 
   // Re-fetch the user from DB on every request rather than trusting the
   // token payload blindly — this catches bans, coin changes, etc. in real time.
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(payload.sub);
+  let user;
+  try {
+    user = await db.prepare("SELECT * FROM users WHERE id = ?").get(payload.sub);
+  } catch (err) {
+    return next(err);
+  }
   if (!user) {
     return res.status(401).json({ error: "User no longer exists" });
   }

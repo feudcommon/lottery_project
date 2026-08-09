@@ -62,7 +62,7 @@ async function createCheckoutSession(userId, amountUsdCents) {
     );
   }
 
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
   if (!user) throw new AppError("User not found", 404);
   if (user.is_banned) throw new AppError("Account suspended", 403);
 
@@ -94,7 +94,7 @@ async function createCheckoutSession(userId, amountUsdCents) {
     cancel_url: config.stripe.cancelUrl,
   });
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO fiat_deposits (user_id, stripe_session_id, amount_usd_cents, coins_credited, status)
     VALUES (?, ?, ?, 0, 'pending')
   `).run(userId, session.id, amountUsdCents);
@@ -104,8 +104,8 @@ async function createCheckoutSession(userId, amountUsdCents) {
 
 // Called only from the webhook handler, after signature verification.
 // Credits coins exactly once per session.
-function creditFiatDeposit(session) {
-  const deposit = db.prepare("SELECT * FROM fiat_deposits WHERE stripe_session_id = ?").get(session.id);
+async function creditFiatDeposit(session) {
+  const deposit = await db.prepare("SELECT * FROM fiat_deposits WHERE stripe_session_id = ?").get(session.id);
   if (!deposit) {
     // Shouldn't happen (we always create the row before redirecting the
     // user), but don't let an unrecognized session crash the webhook.
@@ -122,20 +122,20 @@ function creditFiatDeposit(session) {
 
   const coinsToCredit = Math.floor((deposit.amount_usd_cents / 100) * config.stripe.coinsPerUsd);
 
-  const result = db.transaction(() => {
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(deposit.user_id);
+  const result = await db.transaction(async (tx) => {
+    const user = await tx.prepare("SELECT * FROM users WHERE id = ?").get(deposit.user_id);
     if (!user) throw new AppError("User not found", 404);
 
     const newBalance = user.coins + coinsToCredit;
-    db.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, user.id);
+    await tx.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, user.id);
 
-    db.prepare(`
+    await tx.prepare(`
       UPDATE fiat_deposits
       SET status = 'completed', coins_credited = ?, stripe_payment_intent_id = ?, completed_at = datetime('now')
       WHERE id = ?
     `).run(coinsToCredit, session.payment_intent || null, deposit.id);
 
-    db.prepare(`
+    await tx.prepare(`
       INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
       VALUES (?, ?, 'fiat_deposit', ?, ?)
     `).run(user.id, coinsToCredit, deposit.id, newBalance);
@@ -146,8 +146,8 @@ function creditFiatDeposit(session) {
   return result;
 }
 
-function markFiatDepositFailed(session) {
-  db.prepare(`
+async function markFiatDepositFailed(session) {
+  await db.prepare(`
     UPDATE fiat_deposits SET status = 'failed' WHERE stripe_session_id = ? AND status = 'pending'
   `).run(session.id);
 }
@@ -155,14 +155,14 @@ function markFiatDepositFailed(session) {
 // Raw Stripe event handler — routes by event type. Keep this small and
 // defensive: webhook handlers must never throw on events they don't care
 // about, or Stripe will keep retrying forever.
-function handleWebhookEvent(event) {
+async function handleWebhookEvent(event) {
   switch (event.type) {
     case "checkout.session.completed":
     case "checkout.session.async_payment_succeeded":
       return creditFiatDeposit(event.data.object);
     case "checkout.session.expired":
     case "checkout.session.async_payment_failed":
-      markFiatDepositFailed(event.data.object);
+      await markFiatDepositFailed(event.data.object);
       return null;
     default:
       return null; // ignore anything we don't handle
@@ -180,7 +180,7 @@ function constructWebhookEvent(rawBody, signature) {
   return stripe.webhooks.constructEvent(rawBody, signature, config.stripe.webhookSecret);
 }
 
-function getMyFiatDeposits(userId) {
+async function getMyFiatDeposits(userId) {
   return db
     .prepare("SELECT * FROM fiat_deposits WHERE user_id = ? ORDER BY created_at DESC")
     .all(userId);
@@ -188,7 +188,7 @@ function getMyFiatDeposits(userId) {
 
 // Lets the frontend poll "did my session actually get credited yet?" right
 // after the Stripe redirect, without trusting the redirect itself.
-function getDepositBySessionId(userId, sessionId) {
+async function getDepositBySessionId(userId, sessionId) {
   return db
     .prepare("SELECT * FROM fiat_deposits WHERE user_id = ? AND stripe_session_id = ?")
     .get(userId, sessionId);

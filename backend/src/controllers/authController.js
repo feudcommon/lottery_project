@@ -28,7 +28,7 @@ const telegramLogin = asyncHandler(async (req, res) => {
   // referral-activity requirements, it raises the cost of farming accounts.
   const deviceFingerprint = req.headers["user-agent"] || null;
 
-  const user = findOrCreateUser({ telegramId, username, referralCode, deviceFingerprint });
+  const user = await findOrCreateUser({ telegramId, username, referralCode, deviceFingerprint });
   const token = signUserToken(user);
 
   res.json({
@@ -41,7 +41,7 @@ const browserTelegramLogin = asyncHandler(async (req, res) => {
   const { referralCode, ...telegramPayload } = req.body;
   const verification = verifyTelegramLoginWidgetData(telegramPayload);
   if (!verification.valid) throw new AppError(verification.error || "Telegram login failed", 401);
-  const user = findOrCreateUser({
+  const user = await findOrCreateUser({
     ...verification.data,
     referralCode,
     deviceFingerprint: req.headers["user-agent"] || null,
@@ -55,7 +55,7 @@ const browserTelegramLogin = asyncHandler(async (req, res) => {
 const getWalletNonce = asyncHandler(async (req, res) => {
   const { address } = req.query;
   if (!address) throw new AppError("address is required", 400);
-  const { message } = issueNonce(address);
+  const { message } = await issueNonce(address);
   res.json({ message });
 });
 
@@ -68,9 +68,9 @@ const walletLogin = asyncHandler(async (req, res) => {
     throw new AppError("address and signature are required", 400);
   }
 
-  const verifiedAddress = verifyAndConsumeNonce(address, signature);
+  const verifiedAddress = await verifyAndConsumeNonce(address, signature);
 
-  const user = findOrCreateUserByWallet({
+  const user = await findOrCreateUserByWallet({
     walletAddress: verifiedAddress,
     referralCode,
   });
@@ -88,8 +88,8 @@ const linkWallet = asyncHandler(async (req, res) => {
     throw new AppError("address and signature are required", 400);
   }
 
-  const verifiedAddress = verifyAndConsumeNonce(address, signature);
-  const user = linkWalletToUser(req.user.id, verifiedAddress);
+  const verifiedAddress = await verifyAndConsumeNonce(address, signature);
+  const user = await linkWalletToUser(req.user.id, verifiedAddress);
   res.json({ user: getPublicProfile(user) });
 });
 

@@ -45,11 +45,11 @@ function buildMessage(address, nonce) {
 }
 
 /** Issues (or replaces) a one-time login nonce for an address. */
-function issueNonce(rawAddress) {
+async function issueNonce(rawAddress) {
   const address = normalizeAddress(rawAddress);
   const nonce = crypto.randomBytes(16).toString("hex");
 
-  db.prepare(
+  await db.prepare(
     `INSERT INTO wallet_login_nonces (wallet_address, nonce, created_at)
      VALUES (?, ?, datetime('now'))
      ON CONFLICT(wallet_address) DO UPDATE SET nonce = excluded.nonce, created_at = excluded.created_at`
@@ -62,21 +62,21 @@ function issueNonce(rawAddress) {
  * Verifies a signed nonce and consumes it (single-use). Returns the
  * checked, normalized address on success; throws AppError on any failure.
  */
-function verifyAndConsumeNonce(rawAddress, signature) {
+async function verifyAndConsumeNonce(rawAddress, signature) {
   const address = normalizeAddress(rawAddress);
 
   if (!signature || typeof signature !== "string") {
     throw new AppError("Missing signature", 400);
   }
 
-  const row = db.prepare("SELECT * FROM wallet_login_nonces WHERE wallet_address = ?").get(address);
+  const row = await db.prepare("SELECT * FROM wallet_login_nonces WHERE wallet_address = ?").get(address);
   if (!row) {
     throw new AppError("No login request found for this address. Please try again.", 400);
   }
 
   const ageMs = Date.now() - new Date(row.created_at.replace(" ", "T") + "Z").getTime();
   if (ageMs > NONCE_TTL_MS) {
-    db.prepare("DELETE FROM wallet_login_nonces WHERE wallet_address = ?").run(address);
+    await db.prepare("DELETE FROM wallet_login_nonces WHERE wallet_address = ?").run(address);
     throw new AppError("Login request expired. Please try again.", 400);
   }
 
@@ -91,7 +91,7 @@ function verifyAndConsumeNonce(rawAddress, signature) {
 
   // Nonce is single-use regardless of outcome, so a captured/failed
   // signature can't be retried against the same challenge.
-  db.prepare("DELETE FROM wallet_login_nonces WHERE wallet_address = ?").run(address);
+  await db.prepare("DELETE FROM wallet_login_nonces WHERE wallet_address = ?").run(address);
 
   if (recovered !== address) {
     throw new AppError("Signature does not match the provided address", 401);

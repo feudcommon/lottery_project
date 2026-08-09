@@ -33,7 +33,7 @@ router.use((req, res, next) => {
 router.get(
   "/users",
   asyncHandler(async (req, res) => {
-    const users = db
+    const users = await db
       .prepare(
         `SELECT id, wallet_address, telegram_id, username, referral_code, referred_by, referral_count, coins, created_at
          FROM users ORDER BY created_at DESC LIMIT 50`
@@ -55,8 +55,8 @@ router.delete(
     }
 
     const user = wallet
-      ? db.prepare("SELECT * FROM users WHERE wallet_address = ?").get(wallet)
-      : db.prepare("SELECT * FROM users WHERE telegram_id = ?").get(telegramId);
+      ? await db.prepare("SELECT * FROM users WHERE wallet_address = ?").get(wallet)
+      : await db.prepare("SELECT * FROM users WHERE telegram_id = ?").get(telegramId);
 
     if (!user) {
       return res.json({ deleted: false, message: "No matching user found" });
@@ -73,13 +73,13 @@ router.delete(
       "fiat_deposits",
     ];
     for (const table of tables) {
-      db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(user.id);
+      await db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(user.id);
     }
     // Anyone this user referred should point at nothing rather than a
     // dangling id.
-    db.prepare("UPDATE users SET referred_by = NULL WHERE referred_by = ?").run(user.id);
+    await db.prepare("UPDATE users SET referred_by = NULL WHERE referred_by = ?").run(user.id);
 
-    db.prepare("DELETE FROM users WHERE id = ?").run(user.id);
+    await db.prepare("DELETE FROM users WHERE id = ?").run(user.id);
 
     res.json({ deleted: true, id: user.id, wallet_address: user.wallet_address, telegram_id: user.telegram_id });
   })

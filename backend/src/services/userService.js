@@ -26,25 +26,25 @@ function generateReferralCode() {
  * up in practice, the fix is either back to gating on first play, or
  * adding an anti-abuse check here (e.g. per-IP/device signup limits).
  */
-function creditReferralOnSignup(referrerId, newUserId) {
+async function creditReferralOnSignup(referrerId, newUserId) {
   if (!referrerId) return;
 
-  const alreadyCredited = db
+  const alreadyCredited = await db
     .prepare("SELECT 1 FROM coin_transactions WHERE user_id = ? AND reason = 'referral_bonus_for' AND reference_id = ?")
     .get(referrerId, newUserId);
   if (alreadyCredited) return;
 
-  const referrer = db.prepare("SELECT * FROM users WHERE id = ?").get(referrerId);
+  const referrer = await db.prepare("SELECT * FROM users WHERE id = ?").get(referrerId);
   if (!referrer || referrer.is_banned) return;
 
   const newBalance = referrer.coins + config.game.referralBonus;
 
-  db.prepare("UPDATE users SET coins = ?, referral_count = referral_count + 1 WHERE id = ?").run(
+  await db.prepare("UPDATE users SET coins = ?, referral_count = referral_count + 1 WHERE id = ?").run(
     newBalance,
     referrer.id
   );
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
     VALUES (?, ?, 'referral_bonus_for', ?, ?)
   `).run(referrer.id, config.game.referralBonus, newUserId, newBalance);
@@ -54,13 +54,13 @@ function creditReferralOnSignup(referrerId, newUserId) {
  * Finds an existing user by telegram_id, or creates one. Referral credit
  * to the referrer happens immediately on account creation.
  */
-function findOrCreateUser({ telegramId, username, referralCode, deviceFingerprint }) {
-  const existing = db.prepare("SELECT * FROM users WHERE telegram_id = ?").get(telegramId);
+async function findOrCreateUser({ telegramId, username, referralCode, deviceFingerprint }) {
+  const existing = await db.prepare("SELECT * FROM users WHERE telegram_id = ?").get(telegramId);
   if (existing) return existing;
 
   let referredBy = null;
   if (referralCode) {
-    const referrer = db.prepare("SELECT * FROM users WHERE referral_code = ?").get(referralCode);
+    const referrer = await db.prepare("SELECT * FROM users WHERE referral_code = ?").get(referralCode);
     if (referrer) referredBy = referrer.id;
   }
 
@@ -70,11 +70,11 @@ function findOrCreateUser({ telegramId, username, referralCode, deviceFingerprin
     INSERT INTO users (telegram_id, username, coins, referral_code, referred_by, device_fingerprint, daily_earn_reset_at)
     VALUES (?, ?, 0, ?, ?, ?, datetime('now'))
   `);
-  const result = insert.run(telegramId, username, myReferralCode, referredBy, deviceFingerprint || null);
+  const result = await insert.run(telegramId, username, myReferralCode, referredBy, deviceFingerprint || null);
 
-  const newUser = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+  const newUser = await db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
 
-  if (referredBy) creditReferralOnSignup(referredBy, newUser.id);
+  if (referredBy) await creditReferralOnSignup(referredBy, newUser.id);
 
   return newUser;
 }
@@ -84,13 +84,13 @@ function findOrCreateUser({ telegramId, username, referralCode, deviceFingerprin
  * findOrCreateUser but for players who sign in with just a wallet -
  * no Telegram account involved at all.
  */
-function findOrCreateUserByWallet({ walletAddress, referralCode }) {
-  const existing = db.prepare("SELECT * FROM users WHERE wallet_address = ?").get(walletAddress);
+async function findOrCreateUserByWallet({ walletAddress, referralCode }) {
+  const existing = await db.prepare("SELECT * FROM users WHERE wallet_address = ?").get(walletAddress);
   if (existing) return existing;
 
   let referredBy = null;
   if (referralCode) {
-    const referrer = db.prepare("SELECT * FROM users WHERE referral_code = ?").get(referralCode);
+    const referrer = await db.prepare("SELECT * FROM users WHERE referral_code = ?").get(referralCode);
     if (referrer) referredBy = referrer.id;
   }
 
@@ -101,11 +101,11 @@ function findOrCreateUserByWallet({ walletAddress, referralCode }) {
     INSERT INTO users (wallet_address, username, coins, referral_code, referred_by, daily_earn_reset_at)
     VALUES (?, ?, 0, ?, ?, datetime('now'))
   `);
-  const result = insert.run(walletAddress, shortAddress, myReferralCode, referredBy);
+  const result = await insert.run(walletAddress, shortAddress, myReferralCode, referredBy);
 
-  const newUser = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+  const newUser = await db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
 
-  if (referredBy) creditReferralOnSignup(referredBy, newUser.id);
+  if (referredBy) await creditReferralOnSignup(referredBy, newUser.id);
 
   return newUser;
 }
@@ -115,19 +115,19 @@ function findOrCreateUserByWallet({ walletAddress, referralCode }) {
  * so the same account can subsequently log in with either method. Throws
  * if the wallet is already linked to a different account.
  */
-function linkWalletToUser(userId, walletAddress) {
-  const ownedByOther = db
+async function linkWalletToUser(userId, walletAddress) {
+  const ownedByOther = await db
     .prepare("SELECT id FROM users WHERE wallet_address = ? AND id != ?")
     .get(walletAddress, userId);
   if (ownedByOther) {
     throw new AppError("This wallet is already linked to another account.", 409);
   }
 
-  db.prepare("UPDATE users SET wallet_address = ? WHERE id = ?").run(walletAddress, userId);
+  await db.prepare("UPDATE users SET wallet_address = ? WHERE id = ?").run(walletAddress, userId);
   return db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
 }
 
-function getUserById(id) {
+async function getUserById(id) {
   return db.prepare("SELECT * FROM users WHERE id = ?").get(id);
 }
 

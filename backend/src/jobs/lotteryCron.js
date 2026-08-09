@@ -24,13 +24,17 @@ function cronOptions() {
 function startLotteryCronJobs() {
   const { salesCloseHour, drawHour } = config.game;
 
+  // NOTE: cron callbacks are now async — every DB call in here is a
+  // network round trip to Turso, not an in-process file read, so each
+  // job awaits its work and catches rejections the same way it used to
+  // catch thrown errors.
   cron.schedule(
     `0 ${salesCloseHour} * * *`,
-    () => {
+    async () => {
       const today = ticketService.todayDateString();
       console.log(`[CRON] ${new Date().toISOString()} — closing sales for ${today}`);
       try {
-        lotteryService.closeSalesAndCommitSeed(today);
+        await lotteryService.closeSalesAndCommitSeed(today);
       } catch (err) {
         console.error("[CRON] Failed to close sales:", err);
       }
@@ -40,11 +44,11 @@ function startLotteryCronJobs() {
 
   cron.schedule(
     `0 ${drawHour} * * *`,
-    () => {
+    async () => {
       const today = ticketService.todayDateString();
       console.log(`[CRON] ${new Date().toISOString()} — running draw for ${today}`);
       try {
-        const result = lotteryService.runDraw(today);
+        const result = await lotteryService.runDraw(today);
         console.log("[CRON] Draw result:", result);
       } catch (err) {
         console.error("[CRON] Failed to run draw:", err);
@@ -55,12 +59,16 @@ function startLotteryCronJobs() {
 
   cron.schedule(
     "1 0 * * *",
-    () => {
+    async () => {
       const today = ticketService.todayDateString();
-      const exists = db.prepare("SELECT 1 FROM draws WHERE draw_date = ?").get(today);
-      if (!exists) {
-        db.prepare("INSERT INTO draws (draw_date, status) VALUES (?, 'open')").run(today);
-        console.log(`[CRON] Created draw row for ${today}`);
+      try {
+        const exists = await db.prepare("SELECT 1 FROM draws WHERE draw_date = ?").get(today);
+        if (!exists) {
+          await db.prepare("INSERT INTO draws (draw_date, status) VALUES (?, 'open')").run(today);
+          console.log(`[CRON] Created draw row for ${today}`);
+        }
+      } catch (err) {
+        console.error("[CRON] Failed to ensure draw row:", err);
       }
     },
     cronOptions(),
@@ -74,11 +82,11 @@ function startLotteryCronJobs() {
 
   cron.schedule(
     `0 ${config.game.drawHour} * * 0`,
-    () => {
+    async () => {
       const { weekStart } = jackpotService.getWeekBounds();
       console.log(`[CRON] Closing jackpot week ${weekStart}`);
       try {
-        jackpotService.closeWeekAndCommitSeed(weekStart);
+        await jackpotService.closeWeekAndCommitSeed(weekStart);
       } catch (err) {
         console.error("[CRON] Failed to close jackpot week:", err);
       }
@@ -88,11 +96,11 @@ function startLotteryCronJobs() {
 
   cron.schedule(
     `30 ${config.game.drawHour} * * 0`,
-    () => {
+    async () => {
       const { weekStart } = jackpotService.getWeekBounds();
       console.log(`[CRON] Running jackpot draw for week ${weekStart}`);
       try {
-        const result = jackpotService.runJackpotDraw(weekStart);
+        const result = await jackpotService.runJackpotDraw(weekStart);
         console.log("[CRON] Jackpot result:", result);
       } catch (err) {
         console.error("[CRON] Failed to run jackpot draw:", err);

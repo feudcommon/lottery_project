@@ -46,8 +46,8 @@ function isSalesOpen() {
 /**
  * Returns how many ticket slots are still available for a given draw date.
  */
-function getAvailableTicketCount(drawDate) {
-  const result = db
+async function getAvailableTicketCount(drawDate) {
+  const result = await db
     .prepare("SELECT COUNT(*) as count FROM tickets WHERE draw_date = ?")
     .get(drawDate);
   const sold = result ? result.count : 0;
@@ -58,9 +58,9 @@ function getAvailableTicketCount(drawDate) {
  * The core, safety-critical operation: buy one ticket with desired slot number.
  * Wrapped in db.transaction so it's all-or-nothing and race-condition-free.
  */
-const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber) => {
+const buyTicketTransaction = db.transaction(async (tx, userId, drawDate, desiredSlotNumber) => {
   // 1. Lock in current state by reading fresh inside the transaction
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  const user = await tx.prepare("SELECT * FROM users WHERE id = ?").get(userId);
   if (!user) throw new AppError("User not found", 404);
   if (user.is_banned) throw new AppError("Account suspended", 403);
 
@@ -72,17 +72,17 @@ const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber
   }
 
   // 2. Check draw exists and is open
-  let draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+  let draw = await tx.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
   if (!draw) {
-    db.prepare("INSERT INTO draws (draw_date, status) VALUES (?, 'open')").run(drawDate);
-    draw = db.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
+    await tx.prepare("INSERT INTO draws (draw_date, status) VALUES (?, 'open')").run(drawDate);
+    draw = await tx.prepare("SELECT * FROM draws WHERE draw_date = ?").get(drawDate);
   }
   if (draw.status !== "open") {
     throw new AppError("This draw is no longer accepting ticket purchases", 400);
   }
 
   // 3. Enforce per-user daily ticket limit
-  const userTicketsResult = db
+  const userTicketsResult = await tx
     .prepare("SELECT COUNT(*) as count FROM tickets WHERE user_id = ? AND draw_date = ?")
     .get(userId, drawDate);
   const userTicketsToday = userTicketsResult ? userTicketsResult.count : 0;
@@ -102,7 +102,7 @@ const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber
   }
 
   // 5. Enforce global daily ticket cap
-  const soldResult = db
+  const soldResult = await tx
     .prepare("SELECT COUNT(*) as count FROM tickets WHERE draw_date = ?")
     .get(drawDate);
   const soldCount = soldResult ? soldResult.count : 0;
@@ -111,12 +111,10 @@ const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber
   }
 
   // 6. ✅ Use the desired slot number instead of auto-finding
-  const soldNumbers = new Set(
-    db
-      .prepare("SELECT ticket_number FROM tickets WHERE draw_date = ?")
-      .all(drawDate)
-      .map((r) => r.ticket_number)
-  );
+  const soldRows = await tx
+    .prepare("SELECT ticket_number FROM tickets WHERE draw_date = ?")
+    .all(drawDate);
+  const soldNumbers = new Set(soldRows.map((r) => r.ticket_number));
 
   const ticketNumber = desiredSlotNumber;  // ✅ Use user's choice
 
@@ -130,28 +128,29 @@ const buyTicketTransaction = db.transaction((userId, drawDate, desiredSlotNumber
 
   // 7. Deduct coins
   const newBalance = user.coins - config.game.ticketPrice;
-  db.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, userId);
+  await tx.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, userId);
 
   // 8. Insert the ticket
-  const insertTicket = db.prepare(`
+  const insertTicket = tx.prepare(`
     INSERT INTO tickets (user_id, draw_date, ticket_number, price_paid)
     VALUES (?, ?, ?, ?)
   `);
-  const result = insertTicket.run(userId, drawDate, ticketNumber, config.game.ticketPrice);
+  const result = await insertTicket.run(userId, drawDate, ticketNumber, config.game.ticketPrice);
     // 8b. Feed a slice of the platform fee into this week's jackpot pool
+    // (passing `tx` keeps this atomic with the rest of the purchase)
 
 const jackpotContribution = Math.floor(config.game.platformFee * config.game.jackpotContributionRate);
 if (jackpotContribution > 0) {
-  jackpotService.contributeToJackpot(jackpotContribution);
+  await jackpotService.contributeToJackpot(jackpotContribution, tx);
 }
   // 9. Log the transaction for auditability
-  db.prepare(`
+  await tx.prepare(`
     INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
     VALUES (?, ?, 'ticket_purchase', ?, ?)
   `).run(userId, -config.game.ticketPrice, result.lastInsertRowid, newBalance);
 
   // 10. Update the draw's running total
-  db.prepare("UPDATE draws SET total_tickets_sold = total_tickets_sold + 1 WHERE draw_date = ?").run(drawDate);
+  await tx.prepare("UPDATE draws SET total_tickets_sold = total_tickets_sold + 1 WHERE draw_date = ?").run(drawDate);
 
   return {
     ticketId: result.lastInsertRowid,
@@ -162,12 +161,12 @@ if (jackpotContribution > 0) {
 });
 
 // ✅ Pass slotNumber to transaction
-function buyTicket(userId, drawDate, slotNumber) {
+async function buyTicket(userId, drawDate, slotNumber) {
   const date = drawDate || todayDateString();
   return buyTicketTransaction(userId, date, slotNumber);
 }
 
-function getMyTicketsForDate(userId, drawDate) {
+async function getMyTicketsForDate(userId, drawDate) {
   const date = drawDate || todayDateString();
   return db
     .prepare("SELECT * FROM tickets WHERE user_id = ? AND draw_date = ? ORDER BY ticket_number")

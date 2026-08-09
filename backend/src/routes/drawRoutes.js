@@ -17,7 +17,7 @@ router.get(
   globalLimiter,
   asyncHandler(async (req, res) => {
     const days = parseInt(req.query.days) || 7;
-    const draws = lotteryService.getDrawHistory(days);
+    const draws = await lotteryService.getDrawHistory(days);
     res.json({ draws });
   })
 );
@@ -28,7 +28,7 @@ router.get(
   "/:date",
   globalLimiter,
   asyncHandler(async (req, res) => {
-    const draw = lotteryService.getDraw(req.params.date);
+    const draw = await lotteryService.getDraw(req.params.date);
     if (!draw) throw new AppError("No draw found for that date", 404);
     // Hide the seed itself until the draw has actually happened —
     // only the hash is public pre-draw, per the commit-reveal design.
@@ -51,7 +51,7 @@ router.get(
   "/:date/verify",
   globalLimiter,
   asyncHandler(async (req, res) => {
-    const result = lotteryService.verifyDrawFairness(req.params.date);
+    const result = await lotteryService.verifyDrawFairness(req.params.date);
     res.json(result);
   })
 );

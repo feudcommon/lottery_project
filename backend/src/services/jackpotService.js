@@ -19,30 +19,38 @@ function getWeekBounds(date = new Date()) {
   return { weekStart: fmt(monday), weekEnd: fmt(sunday) };
 }
 
-function getOrCreateCurrentJackpot() {
+// `dbHandle` defaults to the module-level (auto-committing) connection, but
+// callers running inside another transaction (see ticketService.buyTicket)
+// pass their transaction-scoped handle instead, so this stays atomic with
+// whatever it's being called from.
+async function getOrCreateCurrentJackpot(dbHandle = db) {
   const { weekStart, weekEnd } = getWeekBounds();
-  let jackpot = db.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
+  let jackpot = await dbHandle.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
   if (!jackpot) {
-    db.prepare(`
+    await dbHandle.prepare(`
       INSERT INTO jackpots (week_start, week_end, status, pool_amount)
       VALUES (?, ?, 'open', 0)
     `).run(weekStart, weekEnd);
-    jackpot = db.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
+    jackpot = await dbHandle.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
   }
   return jackpot;
 }
 
 // Called from ticketService on every successful ticket purchase.
 // Feeds a slice of the platform fee into this week's jackpot pool.
-function contributeToJackpot(amount) {
-  const jackpot = getOrCreateCurrentJackpot();
+// Accepts an optional transaction handle for the same reason as above —
+// ticketService.buyTicket calls this from inside its own db.transaction()
+// so the jackpot contribution and the ticket purchase commit/rollback
+// together.
+async function contributeToJackpot(amount, dbHandle = db) {
+  const jackpot = await getOrCreateCurrentJackpot(dbHandle);
   if (jackpot.status !== "open") return; // week already closed, skip
-  db.prepare("UPDATE jackpots SET pool_amount = pool_amount + ? WHERE id = ?")
+  await dbHandle.prepare("UPDATE jackpots SET pool_amount = pool_amount + ? WHERE id = ?")
     .run(amount, jackpot.id);
 }
 
-function getCurrentJackpotStatus() {
-  const jackpot = getOrCreateCurrentJackpot();
+async function getCurrentJackpotStatus() {
+  const jackpot = await getOrCreateCurrentJackpot();
   return {
     weekStart: jackpot.week_start,
     weekEnd: jackpot.week_end,
@@ -54,15 +62,15 @@ function getCurrentJackpotStatus() {
 // Entrants: one entry per unique user who bought >=1 ticket in the week's
 // date range. Called at week-close to commit the seed (same commit-reveal
 // pattern as the daily lottery).
-function closeWeekAndCommitSeed(weekStart) {
-  const jackpot = db.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
+async function closeWeekAndCommitSeed(weekStart) {
+  const jackpot = await db.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
   if (!jackpot) throw new AppError(`No jackpot found for week ${weekStart}`, 404);
   if (jackpot.status !== "open") return jackpot;
 
   const seed = crypto.randomBytes(32).toString("hex");
   const seedHash = crypto.createHash("sha256").update(seed).digest("hex");
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE jackpots
     SET status = 'closed', random_seed = ?, server_seed_hash = ?, closed_at = datetime('now')
     WHERE id = ?
@@ -72,20 +80,20 @@ function closeWeekAndCommitSeed(weekStart) {
   return db.prepare("SELECT * FROM jackpots WHERE id = ?").get(jackpot.id);
 }
 
-const runJackpotDrawTransaction = db.transaction((weekStart) => {
-  const jackpot = db.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
+const runJackpotDrawTransaction = db.transaction(async (tx, weekStart) => {
+  const jackpot = await tx.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
   if (!jackpot) throw new AppError(`No jackpot found for week ${weekStart}`, 404);
   if (jackpot.status === "drawn") throw new AppError("Jackpot already drawn", 400);
   if (jackpot.status !== "closed") throw new AppError("Jackpot must be closed before drawing", 400);
 
-  const entrants = db.prepare(`
+  const entrants = await tx.prepare(`
     SELECT DISTINCT user_id FROM tickets
     WHERE draw_date >= ? AND draw_date <= ?
     ORDER BY user_id
   `).all(jackpot.week_start, jackpot.week_end);
 
   if (entrants.length === 0) {
-    db.prepare("UPDATE jackpots SET status = 'drawn', drawn_at = datetime('now') WHERE id = ?").run(jackpot.id);
+    await tx.prepare("UPDATE jackpots SET status = 'drawn', drawn_at = datetime('now') WHERE id = ?").run(jackpot.id);
     return { weekStart, winner: null, entrants: 0, poolAmount: jackpot.pool_amount };
   }
 
@@ -93,16 +101,16 @@ const runJackpotDrawTransaction = db.transaction((weekStart) => {
   const index = parseInt(hash.slice(0, 8), 16) % entrants.length;
   const winnerId = entrants[index].user_id;
 
-  const winner = db.prepare("SELECT * FROM users WHERE id = ?").get(winnerId);
+  const winner = await tx.prepare("SELECT * FROM users WHERE id = ?").get(winnerId);
   const newBalance = winner.coins + jackpot.pool_amount;
 
-  db.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, winnerId);
-  db.prepare(`
+  await tx.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newBalance, winnerId);
+  await tx.prepare(`
     INSERT INTO coin_transactions (user_id, amount, reason, reference_id, balance_after)
     VALUES (?, ?, 'jackpot_win', ?, ?)
   `).run(winnerId, jackpot.pool_amount, jackpot.id, newBalance);
 
-  db.prepare(`
+  await tx.prepare(`
     UPDATE jackpots SET status = 'drawn', winner_user_id = ?, drawn_at = datetime('now') WHERE id = ?
   `).run(winnerId, jackpot.id);
 
@@ -118,12 +126,12 @@ const runJackpotDrawTransaction = db.transaction((weekStart) => {
   };
 });
 
-function runJackpotDraw(weekStart) {
+async function runJackpotDraw(weekStart) {
   return runJackpotDrawTransaction(weekStart);
 }
 
-function verifyJackpotFairness(weekStart) {
-  const jackpot = db.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
+async function verifyJackpotFairness(weekStart) {
+  const jackpot = await db.prepare("SELECT * FROM jackpots WHERE week_start = ?").get(weekStart);
   if (!jackpot || !jackpot.random_seed) throw new AppError("Jackpot not found or not yet drawn", 404);
   const recomputed = crypto.createHash("sha256").update(jackpot.random_seed).digest("hex");
   return {
@@ -135,7 +143,7 @@ function verifyJackpotFairness(weekStart) {
   };
 }
 
-function getJackpotHistory(limit = 8) {
+async function getJackpotHistory(limit = 8) {
   return db.prepare("SELECT * FROM jackpots ORDER BY week_start DESC LIMIT ?").all(limit);
 }
 
