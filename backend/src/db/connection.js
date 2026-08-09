@@ -16,6 +16,10 @@
 // This module keeps the same *shape* of API (`db.prepare(sql).get/all/run`,
 // `db.transaction(fn)`) so the rest of the code stays readable, but every
 // one of those calls now returns a Promise and must be awaited.
+// src/db/connection.js
+//
+// ... (existing comments) ...
+require("dotenv").config();
 const { createClient } = require("@libsql/client");
 
 const url = process.env.TURSO_DATABASE_URL;
