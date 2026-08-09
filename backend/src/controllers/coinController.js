@@ -5,7 +5,7 @@ const { asyncHandler } = require("../middleware/errorHandler");
 
 // POST /api/spin
 const spin = asyncHandler(async (req, res) => {
-  const result = coinService.spin(req.user.id);
+  const result = await coinService.spin(req.user.id);
   res.json({ message: `You won ${result.reward} coins!`, ...result });
 });
 
