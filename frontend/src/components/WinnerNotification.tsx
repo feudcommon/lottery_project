@@ -2,9 +2,10 @@ import type { CSSProperties } from 'react';
 import { useNotifications } from '../hooks/useNotifications';
 
 // Shows a celebratory modal for any unread win notification, and a plain
-// toast-style banner for anything else. Mounted once near the root of the
-// app (see App.tsx) so it works no matter which page the user lands on
-// after logging back in.
+// dismissible toast for anything else — including "better luck next time"
+// consolation notifications, which are intentionally low-key rather than
+// a blocking modal. Mounted once near the root of the app (see App.tsx)
+// so it works no matter which page the user lands on after logging back in.
 export default function WinnerNotification() {
   const { unread, markAsRead } = useNotifications();
 
@@ -13,6 +14,7 @@ export default function WinnerNotification() {
   // Show the most recent one at a time; dismissing it reveals the next.
   const current = unread[0];
   const isWin = current.type === 'lottery_win' || current.type === 'jackpot_win';
+  const isLoss = current.type === 'lottery_loss' || current.type === 'jackpot_loss';
 
   if (isWin) {
     return (
@@ -38,10 +40,11 @@ export default function WinnerNotification() {
     );
   }
 
-  // Fallback: simple non-blocking toast for future non-win notification types.
+  // Fallback: toast for consolation ("better luck next time") and any
+  // future non-win notification types.
   return (
     <div style={toastStyle}>
-      <strong>{current.title}</strong>
+      <strong>{isLoss ? `🎲 ${current.title}` : current.title}</strong>
       <div style={{ fontSize: 13, marginTop: 4 }}>{current.message}</div>
       <button style={toastCloseStyle} onClick={() => markAsRead(current.id)}>
         ✕

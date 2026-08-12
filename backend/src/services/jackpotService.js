@@ -126,6 +126,8 @@ const runJackpotDrawTransaction = db.transaction(async (tx, weekStart) => {
       username: winner.username,
       telegramId: winner.telegram_id,
     },
+    // Every entrant except the winner — used for consolation notifications.
+    loserUserIds: entrants.map((e) => e.user_id).filter((id) => id !== winnerId),
     entrants: entrants.length,
     poolAmount: jackpot.pool_amount,
     revealedSeed: jackpot.random_seed,
@@ -160,6 +162,28 @@ async function runJackpotDraw(weekStart) {
           `💰 Prize: ${result.poolAmount} coins have been added to your balance.\n\n` +
           `Congratulations! 🍀`,
       ).catch((err) => console.error("[Jackpot] Failed to send winner notification:", err));
+    }
+  }
+
+  // "Better luck next time" for every other entrant this week.
+  if (result.loserUserIds?.length) {
+    const consolationMessages = [
+      "Not this week's jackpot winner — but next week's pool is already growing. Better luck next time! 🍀",
+      "So close! This week's jackpot went to someone else, but a new one starts fresh next week. 🎲",
+      "No jackpot this week, but you're already entered in the next one. Good luck! ✨",
+    ];
+
+    for (const userId of result.loserUserIds) {
+      const message = consolationMessages[userId % consolationMessages.length];
+      createNotification({
+        userId,
+        type: "jackpot_loss",
+        title: "Better luck next time!",
+        message: `${message} (week of ${weekStart})`,
+        referenceId: result.jackpotId,
+      }).catch((err) =>
+        console.error(`[Jackpot] Failed to create consolation notification for user ${userId}:`, err),
+      );
     }
   }
 

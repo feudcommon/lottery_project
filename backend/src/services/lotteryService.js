@@ -105,6 +105,9 @@ const runDrawTransaction = db.transaction(async (tx, drawDate) => {
       username: winner.username,
       telegramId: winner.telegram_id,
     },
+    // Every user who bought a ticket for this draw, except the winner —
+    // used afterwards to send "better luck next time" notifications.
+    loserUserIds: [...new Set(tickets.map((t) => t.user_id))].filter((id) => id !== winner.id),
     winningTicketNumber: winningTicket.ticket_number,
     totalTickets: tickets.length,
     rewardAmount: config.game.winnerReward,
@@ -116,9 +119,9 @@ const runDrawTransaction = db.transaction(async (tx, drawDate) => {
 async function runDraw(drawDate) {
   const result = await runDrawTransaction(drawDate);
 
-  // Notify the winner AFTER the transaction has committed — network calls
-  // (Telegram API, DB insert) must never sit inside or be able to roll
-  // back the transaction that actually pays out the win.
+  // Notify AFTER the transaction has committed — network calls (Telegram
+  // API, DB inserts) must never sit inside or be able to roll back the
+  // transaction that actually pays out the win.
   if (result.winner?.userId) {
     const { userId, username, telegramId } = result.winner;
 
@@ -145,6 +148,30 @@ async function runDraw(drawDate) {
           `💰 Reward: ${result.rewardAmount} coins have been added to your balance.\n\n` +
           `Good luck in the next draw! 🍀`,
       ).catch((err) => console.error("[Lottery] Failed to send winner notification:", err));
+    }
+  }
+
+  // "Better luck next time" — everyone else who bought a ticket for this
+  // draw. Kept deliberately low-key (in-app only, no Telegram DM) so it
+  // doesn't feel like spam to people who play daily.
+  if (result.loserUserIds?.length) {
+    const consolationMessages = [
+      "Not this time — but every ticket is a fresh shot at the next draw. Better luck tomorrow! 🍀",
+      "So close! Today's draw didn't go your way, but tomorrow's is already loading. 🎲",
+      "No win today, but the next draw is just around the corner. Good luck! ✨",
+    ];
+
+    for (const userId of result.loserUserIds) {
+      const message = consolationMessages[userId % consolationMessages.length];
+      createNotification({
+        userId,
+        type: "lottery_loss",
+        title: "Better luck next time!",
+        message: `${message} (${drawDate} draw)`,
+        referenceId: result.drawId,
+      }).catch((err) =>
+        console.error(`[Lottery] Failed to create consolation notification for user ${userId}:`, err),
+      );
     }
   }
 
