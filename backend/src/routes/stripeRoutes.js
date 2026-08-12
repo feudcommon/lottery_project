@@ -45,7 +45,7 @@ router.get(
   "/deposits",
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json(getMyFiatDeposits(req.user.id));
+    res.json(await getMyFiatDeposits(req.user.id));
   }),
 );
 
@@ -53,7 +53,7 @@ router.get(
   "/deposit/:sessionId",
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json(getDepositBySessionId(req.user.id, req.params.sessionId));
+    res.json(await getDepositBySessionId(req.user.id, req.params.sessionId));
   }),
 );
 

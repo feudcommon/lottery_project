@@ -16,7 +16,7 @@ export const useTickets = () => {
         drawDate: drawDate || new Date().toISOString().split('T')[0],
       });
       if (user) {
-        setUser({ ...user, coins: response.data.userCoins });
+        setUser({ ...user, coins: response.data.ticket.coinsRemaining });
       }
       return response.data;
     } catch (err) {

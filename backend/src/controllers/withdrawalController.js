@@ -21,7 +21,7 @@ const getEligibility = asyncHandler(async (req, res) => {
 
 // GET /api/withdraw/history
 const getHistory = asyncHandler(async (req, res) => {
-  const withdrawals = withdrawalService.getMyWithdrawals(req.user.id);
+  const withdrawals = await withdrawalService.getMyWithdrawals(req.user.id);
   res.json({ withdrawals });
 });
 

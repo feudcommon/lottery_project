@@ -151,6 +151,7 @@ function getPublicProfile(user) {
     hasTelegram: Boolean(user.telegram_id),
     hasWallet: Boolean(user.wallet_address),
     isAdmin,
+    createdAt: user.created_at,
     withdrawUnlocked:
       user.coins >= config.withdrawal.minCoins && user.referral_count >= config.withdrawal.minReferrals,
   };

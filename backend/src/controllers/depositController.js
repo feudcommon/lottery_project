@@ -21,7 +21,7 @@ const deposit = asyncHandler(async (req, res) => {
 
 // GET /api/deposit/history
 const getHistory = asyncHandler(async (req, res) => {
-  const deposits = depositService.getMyDeposits(req.user.id);
+  const deposits = await depositService.getMyDeposits(req.user.id);
   res.json({ deposits });
 });
 

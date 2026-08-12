@@ -1,0 +1,135 @@
+# SCAI Lucky Loop — Project Documentation
+
+This document explains what the game actually is, how a player experiences it end to end, how the admin panel works, and how the two sides of the codebase (frontend/backend) fit together. It reflects the current, verified state of the code as of this audit — every flow described here was traced from the live source files, not from the original spec.
+
+---
+
+## 1. Game scenario — what SCAI Lucky Loop actually is
+
+SCAI Lucky Loop is a **free-to-play daily lottery** with a **weekly jackpot**, playable either as a **Telegram Mini App** or directly on the **web** (no Telegram account required). Players never spend real money to play the core game — they earn a virtual currency called **coins** through daily activity and referrals, and spend coins on lottery tickets. Coins can later be converted into a real on-chain token (**LLT**, SCAI Lucky Loop Token) once a player has been active enough to qualify for withdrawal.
+
+Think of it in three layers:
+
+1. **Earn coins** — daily free spin, inviting friends, or (optionally) buying coins directly with SCAI or a card.
+2. **Play the loop** — spend coins on numbered tickets in a daily lottery and a running weekly jackpot.
+3. **Cash out** — once a player has enough coins and enough referrals, they can withdraw real LLT tokens to their own wallet.
+
+The "loop" in the name is literal: daily draw → daily draw → daily draw, with a jackpot accumulating in the background every 7 days, endlessly repeating.
+
+---
+
+## 2. Core game mechanics
+
+### 2.1 Coins — the in-game currency
+- New accounts start at **0 coins**.
+- Coins are earned via:
+  - **Daily spin** (`POST /api/spin`) — a random reward between a configured min/max (default 5–20 coins), once per cooldown window (default 24h), capped by a daily earn limit (default 100 coins/day) so no exploit can mint unlimited coins.
+  - **Referrals** — inviting a friend who signs up through your link credits you a flat bonus (default 50 coins) the moment their account is created.
+  - **Winning a draw or the jackpot** — see below.
+  - **Direct purchase** — sending on-chain SCAI to a treasury address, or paying with a card via Stripe Checkout.
+- Coins are spent on tickets and withdrawals.
+- Every coin movement (spin, ticket purchase, referral bonus, win, deposit, withdrawal) is logged in an append-only `coin_transactions` ledger, so a player's full history is always auditable.
+
+### 2.2 Daily lottery
+- Each day has a **draw window**: sales open at a configured hour (default 09:00) and close at another (default 15:00), all timezone-aware via `CRON_TIMEZONE`.
+- There are a fixed number of numbered ticket **slots per day** (default 50, numbered 0–49).
+- A ticket costs a fixed number of coins (default 10).
+- A player can hold at most a configured number of tickets per day (default 2), and can pick **which slot number** they want (first-come-first-served — a slot already sold is locked out).
+- After sales close, a cron job **commits** a random seed by publishing only its SHA-256 hash (`server_seed_hash`) — the actual seed stays secret.
+- Later that same day, a second cron job **runs the draw**: it reveals the seed, uses it to deterministically pick one of that day's sold tickets as the winner, and credits the winner a fixed coin reward (default 100 coins).
+- **Fairness is publicly verifiable** — anyone (no login required) can call `GET /api/draws/:date/verify`, which recomputes the hash from the revealed seed and confirms it matches what was published *before* the draw ran. This is a standard commit-reveal scheme: nobody (including the operator) could have chosen the winner after seeing who bought which ticket, because the seed was hashed and committed before the draw.
+
+### 2.3 Weekly jackpot
+- Every ticket purchase also feeds a slice of the platform fee into a **shared weekly jackpot pool** (Monday–Sunday, timezone-aware).
+- Anyone who bought at least one ticket during the week is automatically entered — no separate purchase needed.
+- The jackpot uses the **same commit-reveal fairness model** as the daily draw: closed and seed-committed at week's end, drawn shortly after, and independently verifiable via `GET /api/jackpot/:weekStart/verify`.
+- The winner receives the entire accumulated pool in coins.
+
+### 2.4 Withdrawals — converting coins to real tokens
+- Withdrawals are **gated by two thresholds**, both configurable: a minimum coin balance (default 1,000) and a minimum number of active referrals (default 5). This is deliberate — it rewards players who help grow the game, not just players who got lucky once.
+- Once eligible, a player enters an LLT wallet address and an amount. The backend:
+  1. Re-validates eligibility and balance server-side (never trusts the frontend).
+  2. Converts coins to LLT tokens at a configured rate (default 100 coins = 1 LLT).
+  3. Sends the tokens **on-chain first** (mint + transfer, on the SCAI network), *before* touching the database.
+  4. Only if the blockchain transaction succeeds does it deduct coins and record the withdrawal — so a failed chain call never costs the player coins.
+- If the blockchain isn't configured or fails, an admin can review the request and either manually mark it sent (after paying out some other way) or reject it, which **refunds the coins**.
+
+### 2.5 Buying coins directly (optional, for players who don't want to wait)
+Two independent purchase paths exist side by side:
+- **On-chain SCAI deposit** — a player sends native SCAI from their connected wallet to a treasury address; the backend verifies the transaction on-chain (with a short retry loop for RPC lag) before crediting coins at a configured rate.
+- **Stripe Checkout (fiat/card)** — a player is redirected to a Stripe-hosted payment page; coins are credited only once Stripe's `checkout.session.completed` webhook fires and is signature-verified, which makes the flow idempotent against Stripe's automatic retries.
+
+---
+
+## 3. Frontend — full player journey
+
+The React app is served both inside Telegram (as a Mini App) and as a normal website, from the same codebase.
+
+| Step | Screen | What happens |
+|---|---|---|
+| 1 | **Login** (`/login`) | Shows live game stats (current jackpot, player count, countdown to next draw) pulled from `/api/public/stats`, pulled from the public root as well when unauthenticated. Three sign-in paths, auto-detected: <br>• **Inside Telegram Mini App** → signs in automatically using Telegram's `initData`, no button press needed. <br>• **Plain browser, Telegram widget configured** → shows Telegram's official Login Widget. <br>• **Any browser** → "Connect wallet" (Reown AppKit) → signs a free, gas-less message to prove wallet ownership, no Telegram needed at all. A referral code in the URL (`?ref=CODE`) or Telegram's `start_param` is captured and survives page reloads via `sessionStorage`. |
+| 2 | **Home** (`/home`) | Shows current coin balance (polls every 5s), a "Claim Daily Reward" spin button, and a grid linking to every other screen (Tickets, Results, Withdraw, Leaderboard, Jackpot, Profile, and Admin if the account is recognized as an admin). |
+| 3 | **Tickets** (`/tickets`) | A 5×10 grid of slots 0–49 for today's draw. Sold slots are greyed out, the player's own tickets are highlighted green, everything else is purchasable (disabled entirely if balance < 10 coins). Buying a slot calls `POST /api/buy-ticket` and refreshes the grid. |
+| 4 | **Draws** (`/draws`) | Shows the last 7 days of draw results — status (open/closed/drawn), winner, and a "Verify Draw" button that calls the public fairness-check endpoint. |
+| 5 | **Jackpot** (`/jackpot`) | Current pool size, the week's date range and status, and a history of past weekly jackpots and their winners. |
+| 6 | **Leaderboard** (`/leaderboard`) | Top players ranked by coin balance, plus the logged-in player's own rank even if they're outside the visible top list. |
+| 7 | **Withdraw** (`/withdraw`) | Connect wallet → optionally buy more coins with SCAI right there → see eligibility (coins and referrals, live from the backend, never hardcoded) → submit a withdrawal request → see the resulting LLT transaction hash and a link to the block explorer. |
+| 8 | **Profile** (`/profile`) | Username, coin balance, referral count, member-since date, and two separate shareable referral links — one Telegram deep link, one plain website link — since a friend needs a different link depending on whether they'll play in Telegram or in a browser. |
+| 9 | **Info pages** (`/about`, `/how-it-works`, `/rules`, `/faq`, `/contact`) | Static, public, no login required — the shared marketing/informational shell (`PageShell` + `Navbar`) used across all of them. |
+
+Every screen that needs the player's identity is wrapped in a `ProtectedRoute` that redirects to `/login` if there's no auth token; the backend independently re-verifies that token (and re-checks ban status) on every request regardless of what the frontend thinks.
+
+---
+
+## 4. Admin panel — flow and controls
+
+The admin screen lives at `/admin` and has **two independent layers of protection**:
+
+1. **A client-side password screen** (a simple shared password, stored only in that session's `sessionStorage`) — this exists purely so the panel isn't visibly wide open to anyone who happens to load the URL. It is explicitly **not** real security.
+2. **Real access control, enforced entirely server-side** on every `/api/admin/*` request: the account must pass `requireAuth` (valid session) *and* `requireAdmin`, where admin status comes from any of three sources — a Telegram ID in the `ADMIN_TELEGRAM_IDS` env var, a wallet address in `ADMIN_WALLET_ADDRESSES`, or the `is_admin` database column. The first two are bootstrap-only (need a redeploy to change); the third can be granted or revoked by an existing admin from inside the panel itself, no redeploy needed.
+
+Once unlocked, the panel shows:
+- **Live counts** — total users, tickets sold today, pending withdrawals.
+- **Run today's draw** — a manual override button, for recovering from a missed/failed cron run.
+- **Pending withdrawals** — approve (triggers the real on-chain mint + transfer) or reject (refunds the player's coins) each request.
+- **Recent users** — balance, referral count, ban status, and a one-click promote/demote toggle for admin access.
+
+Behind the scenes, `/api/admin/*` also exposes (not yet surfaced in the UI, but available via the API — see `Api.md`): ticket-sales inspection for any date, and manual jackpot close/draw actions for recovering a missed weekly cron run.
+
+---
+
+## 5. Technical architecture (current, verified)
+
+- **Frontend**: React + TypeScript + Vite + React Router, deployed to Vercel. State lives in a small Zustand store (`userStore.ts`) persisted to `localStorage`; data fetching is a thin Axios wrapper (`api/client.ts`) that auto-attaches the JWT and auto-redirects to `/login` on a 401.
+- **Backend**: Express on Node, deployed to Render. JWT auth, Zod request validation, per-route rate limiting (`express-rate-limit`), and `node-cron` for the scheduled jobs.
+- **Database**: **Turso (libSQL)** — a remote, persistent SQLite-compatible database. This replaced the earlier local `node:sqlite` setup specifically because that local file lived on the container's disk, which most hosts (including Render's free tier) wipe on every redeploy or spin-down. Every database call is now a network round trip and therefore `async`; the connection layer (`db/connection.js`) wraps this so the rest of the code still reads like synchronous `better-sqlite3`-style calls (`db.prepare(sql).get/all/run(...)`), just always `await`-ed.
+- **Blockchain**: Solidity/Hardhat token contract (LLT) on the SCAI network; the backend holds a funded operator wallet (`ethers.js`) that mints and transfers tokens for approved withdrawals. The frontend connects player wallets via Reown AppKit for wallet-based login, on-chain deposits, and withdrawal address entry.
+- **Payments**: Stripe Checkout for optional fiat coin purchases, verified via signed webhook.
+
+See [architecture.md](./architecture.md) and the diagrams in [Assets](./Assets) for request-level sequence diagrams, and [Api.md](./Api.md) for the full REST reference (every route, request body, and response shape).
+
+---
+
+## 6. This audit — what was checked and what was fixed
+
+Every backend controller, service, route, middleware file, and DB helper was read in full, cross-checked against the routes actually wired into `app.js`, and additionally verified with an automated pass that flags any async function called without `await`. Every frontend page, hook, and component was read in full and cross-checked against the exact JSON shape each backend endpoint returns. The frontend was also compiled with `tsc --noEmit`: zero type errors in the project's own source.
+
+**Bugs found and fixed** (all already applied to the files in this repo):
+
+1–2. `jackpotController.js`, `leaderboardController.js` — missing `await` on async service calls, causing the Jackpot and Leaderboard pages to render blank (this was the original issue reported and fixed first).
+3. `depositController.getHistory` — missing `await`, deposit history was silently broken.
+4. `userController.getMyHistory` — missing `await`, coin transaction history was silently broken.
+5. `withdrawalController.getHistory` — missing `await`, withdrawal history was silently broken.
+6–7. `Drawscontroller.js` (`getDrawHistory`, `getTodaysDraw`) — same missing-`await` bug; also discovered this controller isn't actually wired into `app.js` (the real `/api/draws` routes live in `drawRoutes.js` and were already correct). Fixed anyway for safety since it's still exported code.
+8–9. `stripeRoutes.js` — `/api/stripe/deposits` and `/api/stripe/deposit/:sessionId` had the same missing-`await` bug.
+10. `useTickets.ts` — read a field (`response.data.userCoins`) that the backend never returns; the real field is `response.data.ticket.coinsRemaining`. This meant the displayed balance briefly went blank/undefined right after a ticket purchase.
+11. `userService.getPublicProfile()` — never included `createdAt`, so the Profile page's "Member Since" always showed "Invalid Date" for every user. Now included.
+
+**Cosmetic-only fixes**: four legacy, currently-unused components (`BalanceCard.tsx`, `Header.tsx`, `DrawCountdown.tsx`, `Loading.tsx`) had garbled/mojibake emoji from an old encoding issue — corrected, even though nothing currently imports these files.
+
+**Confirmed correct, no changes needed**: the entire ticket-purchase transaction (atomic slot-locking, per-user/global caps, coin deduction, jackpot contribution — all inside one Turso transaction), the daily draw and weekly jackpot commit-reveal fairness logic, wallet nonce-signature auth, both Telegram login paths, Stripe checkout + webhook crediting (idempotent by design), on-chain SCAI deposit verification, the withdrawal on-chain-first-then-DB ordering, referral crediting, rate limiting, and every route wired into `app.js`.
+
+**Known, intentional design notes** (not bugs, but worth knowing about):
+- `Drawscontroller.js` / `Drawsservice.js` and the `useDraws.ts` hook are dead code — not imported or routed anywhere. `Landing.tsx` is also unrouted, but this is because `Login.tsx` already absorbed its marketing-page role (live stats, hero section) — not a missing feature.
+- `db/sqliteCompat.js` is a leftover shim from the pre-Turso `node:sqlite` era; nothing imports it anymore.
+- The admin panel's client-side password is a UX gate only, not real access control (this is explicitly commented in the code) — real enforcement is entirely server-side, as described in §4.

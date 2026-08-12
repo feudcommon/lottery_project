@@ -28,7 +28,7 @@ const getMe = asyncHandler(async (req, res) => {
 });
 
 const getMyHistory = asyncHandler(async (req, res) => {
-  const history = getTransactionHistory(req.user.id);
+  const history = await getTransactionHistory(req.user.id);
   res.json({ history });
 });
 

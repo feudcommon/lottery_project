@@ -1,4 +1,3 @@
-
 // src/components/DrawCountdown.tsx
 import { useEffect, useState } from 'react';
 
@@ -35,7 +34,7 @@ export default function DrawCountdown() {
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
-      <h2 className="font-bold mb-2">Ã¢ÂÂ³ Next Draw</h2>
+      <h2 className="font-bold mb-2">⏳ Next Draw</h2>
       <p className="text-3xl font-bold text-blue-600">{timeLeft}</p>
       <p className="text-sm text-gray-600 mt-2">Draw happens at 18:00</p>
     </div>
