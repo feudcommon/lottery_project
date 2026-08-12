@@ -118,11 +118,34 @@ async function migrateWinnerPaidOutColumns(db) {
   }
 }
 
+// Migration 5: in-app notifications, primarily for winners who have no
+// Telegram identity (wallet-only players) and therefore can't be reached
+// via the bot DM — they'll see this next time they open the site instead.
+// Also written for Telegram users so there's one consistent notification
+// feed regardless of login method.
+async function migrateNotificationsTable(db) {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      type TEXT NOT NULL,            -- 'lottery_win' | 'jackpot_win' (extensible later)
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      reference_id INTEGER,          -- optional FK to draws.id / jackpots.id
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read);`);
+}
+
 async function runMigrations(db) {
   await migrateTelegramIdOptional(db);
   await migrateWalletAddressUniqueIndex(db);
   await migrateIsAdminColumn(db);
   await migrateWinnerPaidOutColumns(db);
+  await migrateNotificationsTable(db);
 }
 
 module.exports = { runMigrations };

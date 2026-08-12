@@ -18,6 +18,7 @@ const depositRoutes = require("./routes/depositRoutes");
 const publicRoutes = require("./routes/publicRoutes");
 const stripeRoutes = require("./routes/stripeRoutes");
 const debugRoutes = require("./routes/debugRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 function createApp() {
   const app = express();
@@ -55,6 +56,7 @@ function createApp() {
   app.use("/api/public", publicRoutes);
   app.use("/api/stripe", stripeRoutes);
   app.use("/api/debug", debugRoutes);
+  app.use("/api/notifications", notificationRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

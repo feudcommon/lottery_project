@@ -17,6 +17,7 @@ import GameRules from './pages/GameRules';
 import FAQ from './pages/FAQ';
 import Contact from './pages/Contact';
 import Admin from './pages/Admin';
+import WinnerNotification from './components/WinnerNotification';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useUserStore();
@@ -25,6 +26,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const { token } = useUserStore();
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
@@ -33,6 +36,9 @@ export default function App() {
   return (
     <BrowserRouter>
       {/* <Analytics /> */}
+      {/* Shows a "you won!" modal on load/poll if there's anything unread —
+          works for wallet-only users too, unlike the Telegram DM. */}
+      {token && <WinnerNotification />}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />

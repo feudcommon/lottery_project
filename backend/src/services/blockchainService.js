@@ -54,6 +54,49 @@ try {
   console.error("Failed to initialize blockchain service:", error.message);
 }
 
+// ─── RPC sync-lag guard ───────────────────────────────────────────────────
+// Some RPC providers (especially on smaller/private chains like SCAI) can
+// silently serve a node that hasn't synced up to the block where our
+// contract was deployed. Calls like decimals()/balanceOf() then return
+// empty data ("0x"), which ethers surfaces as a confusing low-level
+// BAD_DATA "could not decode result data" error. We check for that
+// specific situation up front and fail with a clear, actionable message
+// instead, so withdrawals fail gracefully rather than crashing on a decode
+// error.
+class RpcNotReadyError extends AppError {
+  constructor(message) {
+    super(message, 503);
+    this.name = "RpcNotReadyError";
+  }
+}
+
+async function assertRpcIsCaughtUp() {
+  if (!provider || !LLT_CONTRACT_ADDRESS) return;
+
+  let code;
+  try {
+    code = await provider.getCode(LLT_CONTRACT_ADDRESS);
+  } catch (error) {
+    // Network/connection-level failure talking to the RPC at all.
+    throw new RpcNotReadyError(
+      "Blockchain network is temporarily unreachable — withdrawals are paused, please try again later.",
+    );
+  }
+
+  if (!code || code === "0x") {
+    // Either the RPC node hasn't synced far enough to see our contract yet,
+    // or (much less likely, since this address is fixed/known-good) the
+    // contract genuinely isn't deployed at this address on this network.
+    console.error(
+      `[Blockchain] RPC at ${RPC_URL} returned empty bytecode for ${LLT_CONTRACT_ADDRESS}. ` +
+        "The node is likely still syncing and hasn't reached the contract's deployment block.",
+    );
+    throw new RpcNotReadyError(
+      "Blockchain network is temporarily syncing — withdrawals are paused, please try again later.",
+    );
+  }
+}
+
 async function sendWithRetry(txPromiseFactory, maxAttempts = 3) {
   let lastError;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -86,6 +129,8 @@ async function sendTokensOnChain(toAddress, amountCoins) {
 
   try {
     console.log(`Sending ${amountCoins} LLT to ${toAddress}`);
+
+    await assertRpcIsCaughtUp();
 
     const decimals = await contract.decimals();
     const amountTokens = ethers.parseUnits(amountCoins.toString(), decimals);

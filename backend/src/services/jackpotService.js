@@ -3,6 +3,8 @@ const crypto = require("crypto");
 const db = require("../db/connection");
 const config = require("../config");
 const { AppError } = require("../middleware/errorHandler");
+const { sendTelegramMessage } = require("./telegramService");
+const { createNotification } = require("./notificationService");
 
 // Monday-anchored week key, timezone-aware like the rest of the app
 function getWeekBounds(date = new Date()) {
@@ -118,7 +120,12 @@ const runJackpotDrawTransaction = db.transaction(async (tx, weekStart) => {
 
   return {
     weekStart,
-    winner: { userId: winner.id, username: winner.username },
+    jackpotId: jackpot.id,
+    winner: {
+      userId: winner.id,
+      username: winner.username,
+      telegramId: winner.telegram_id,
+    },
     entrants: entrants.length,
     poolAmount: jackpot.pool_amount,
     revealedSeed: jackpot.random_seed,
@@ -127,7 +134,36 @@ const runJackpotDrawTransaction = db.transaction(async (tx, weekStart) => {
 });
 
 async function runJackpotDraw(weekStart) {
-  return runJackpotDrawTransaction(weekStart);
+  const result = await runJackpotDrawTransaction(weekStart);
+
+  // Notify after commit — same reasoning as the daily draw: never let a
+  // Telegram API call or notification insert live inside the payout
+  // transaction.
+  if (result.winner?.userId) {
+    const { userId, username, telegramId } = result.winner;
+
+    createNotification({
+      userId,
+      type: "jackpot_win",
+      title: "🏆 You won this week's jackpot!",
+      message:
+        `You won the jackpot for the week of ${weekStart}. ` +
+        `${result.poolAmount} coins have been added to your balance.`,
+      referenceId: result.jackpotId,
+    }).catch((err) => console.error("[Jackpot] Failed to create winner notification:", err));
+
+    if (telegramId) {
+      sendTelegramMessage(
+        telegramId,
+        `🎉🏆 <b>JACKPOT WIN${username ? `, ${username}` : ""}!</b>\n\n` +
+          `You won this week's jackpot (week of ${weekStart})!\n` +
+          `💰 Prize: ${result.poolAmount} coins have been added to your balance.\n\n` +
+          `Congratulations! 🍀`,
+      ).catch((err) => console.error("[Jackpot] Failed to send winner notification:", err));
+    }
+  }
+
+  return result;
 }
 
 async function verifyJackpotFairness(weekStart) {

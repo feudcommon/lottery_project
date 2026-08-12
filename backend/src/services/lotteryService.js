@@ -2,6 +2,8 @@ const crypto = require("crypto");
 const db = require("../db/connection");
 const config = require("../config");
 const { AppError } = require("../middleware/errorHandler");
+const { sendTelegramMessage } = require("./telegramService");
+const { createNotification } = require("./notificationService");
 
 // ─── PATCH ──────────────────────────────────────────────────────────────────
 // Previously, if a day had zero ticket sales, no `draws` row ever got
@@ -97,7 +99,12 @@ const runDrawTransaction = db.transaction(async (tx, drawDate) => {
 
   return {
     drawDate,
-    winner: { userId: winner.id, username: winner.username },
+    drawId: draw.id,
+    winner: {
+      userId: winner.id,
+      username: winner.username,
+      telegramId: winner.telegram_id,
+    },
     winningTicketNumber: winningTicket.ticket_number,
     totalTickets: tickets.length,
     rewardAmount: config.game.winnerReward,
@@ -107,7 +114,41 @@ const runDrawTransaction = db.transaction(async (tx, drawDate) => {
 });
 
 async function runDraw(drawDate) {
-  return runDrawTransaction(drawDate);
+  const result = await runDrawTransaction(drawDate);
+
+  // Notify the winner AFTER the transaction has committed — network calls
+  // (Telegram API, DB insert) must never sit inside or be able to roll
+  // back the transaction that actually pays out the win.
+  if (result.winner?.userId) {
+    const { userId, username, telegramId } = result.winner;
+
+    // In-app notification: works for every user, including wallet-only
+    // players with no Telegram identity. Shown next time they open the site.
+    createNotification({
+      userId,
+      type: "lottery_win",
+      title: "🎉 You won today's draw!",
+      message:
+        `Your ticket #${result.winningTicketNumber} won the ${drawDate} Lucky Loop draw. ` +
+        `${result.rewardAmount} coins have been added to your balance.`,
+      referenceId: result.drawId,
+    }).catch((err) => console.error("[Lottery] Failed to create winner notification:", err));
+
+    // Telegram DM: bonus channel for users who logged in via Telegram and
+    // have opened a chat with the bot. Silently skipped otherwise.
+    if (telegramId) {
+      sendTelegramMessage(
+        telegramId,
+        `🎉 <b>Congratulations${username ? `, ${username}` : ""}!</b>\n\n` +
+          `You won today's Lucky Loop draw (${drawDate})!\n` +
+          `🎟️ Winning ticket: #${result.winningTicketNumber}\n` +
+          `💰 Reward: ${result.rewardAmount} coins have been added to your balance.\n\n` +
+          `Good luck in the next draw! 🍀`,
+      ).catch((err) => console.error("[Lottery] Failed to send winner notification:", err));
+    }
+  }
+
+  return result;
 }
 
 async function verifyDrawFairness(drawDate) {
