@@ -20,7 +20,7 @@ Server starts on `http://localhost:3000`. Hit `GET /health` to confirm it's aliv
 
 - Node.js 18+
 - A Telegram bot token from [@BotFather](https://t.me/BotFather) for the Telegram login path — not required for the wallet-only login path
-- No external database server — SQLite (file-based) via Node's built-in `node:sqlite` module (no native compile step, so no Windows build-tool setup needed)
+- Turso (libSQL) — a remote, hosted SQLite-compatible database accessed via `@libsql/client`. No local database file: data lives outside the app container, so it survives redeploys and host restarts (unlike the project's earlier local-file `node:sqlite` setup).
 
 ## Project layout
 
@@ -30,8 +30,8 @@ src/
   server.js           Entry point — starts the HTTP server + cron jobs
   config/             All tunable numbers (ticket price, hours, limits, admin allowlists) read from .env
   db/
-    init.js           Creates the SQLite schema (run once via `npm run init-db`)
-    connection.js     Shared DB connection (node:sqlite) used everywhere else
+    init.js           Creates the Turso schema (safe to run every boot; also runnable once via `npm run init-db`)
+    connection.js     Shared Turso (libSQL) connection used everywhere else
   routes/             Express routers — one file per resource, just wiring
   controllers/        Request/response handling — thin, calls into services
   services/           All business logic (tickets, draws, jackpot, withdrawals, deposits, coins, users)
@@ -40,7 +40,7 @@ src/
   utils/               JWT signing/verification, Telegram signature verification, wallet nonce/signature verification
 ```
 
-Routes only wire HTTP methods to controllers. Controllers only parse requests and format responses. Services hold all the actual rules (ticket limits, coin math, draw fairness, withdrawal eligibility). That separation keeps `services/` unit-testable without touching Express, and means swapping SQLite for Postgres later only touches `db/` and the SQL inside `services/`.
+Routes only wire HTTP methods to controllers. Controllers only parse requests and format responses. Services hold all the actual rules (ticket limits, coin math, draw fairness, withdrawal eligibility). That separation keeps `services/` unit-testable without touching Express, and means swapping the database again later only touches `db/` and the SQL inside `services/`.
 
 ## Environment variables
 
@@ -89,7 +89,7 @@ Full reference with request/response bodies: [`../Api.md`](../Api.md). Summary:
 | GET | `/api/jackpot/history` | none | Past jackpot weeks |
 | GET | `/api/jackpot/:weekStart/verify` | none | Verify jackpot fairness |
 | GET | `/api/public/stats` | none | Aggregate public stats |
-| GET/POST | `/api/admin/*` | admin | User list/promotion, ticket sales, withdrawal approval, manual draw/jackpot control |
+| GET/POST | `/api/admin/*` | admin | User list/promotion, ticket sales, withdrawal approval, manual draw/jackpot control, direct on-chain winner payout |
 
 ## How the daily lottery runs
 
@@ -116,4 +116,4 @@ Telegram login requires a cryptographically signed payload only Telegram can pro
 
 ## Deployment
 
-Deployed on Render as a web service, running `npm start` from `backend/`. Set all required env vars (secrets, DB path, admin allowlists, RPC/Stripe keys) directly in the Render dashboard.
+Deployed on Render as a web service, running `npm start` from `backend/`. Set all required env vars (secrets, Turso database URL/token, admin allowlists, RPC/Stripe keys) directly in the Render dashboard.

@@ -11,9 +11,13 @@ export const useTickets = () => {
     setIsLoading(true);
     setError(null);
     try {
+      // Only send drawDate if the caller explicitly passed one — computing
+      // "today" here with toISOString() would be UTC, which disagrees with
+      // the backend's CRON_TIMEZONE for part of every day. Omitting it lets
+      // the backend compute "today" itself, timezone-aware.
       const response = await api.post('/api/buy-ticket', {
         slotNumber,
-        drawDate: drawDate || new Date().toISOString().split('T')[0],
+        ...(drawDate ? { drawDate } : {}),
       });
       if (user) {
         setUser({ ...user, coins: response.data.ticket.coinsRemaining });

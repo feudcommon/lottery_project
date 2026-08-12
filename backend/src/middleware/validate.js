@@ -1,5 +1,6 @@
 // src/middleware/validate.js
 const { z } = require("zod");
+const config = require("../config");
 
 function validate(schema) {
   return (req, res, next) => {
@@ -42,8 +43,11 @@ const buyTicketSchema = z.object({
   slotNumber: z
     .number()
     .int("slotNumber must be a whole number")
-    .min(0, "slotNumber must be between 0 and 49")
-    .max(49, "slotNumber must be between 0 and 49")
+    .min(0, "slotNumber must be between 0 and " + (config.game.totalTicketsPerDay - 1))
+    .max(
+      config.game.totalTicketsPerDay - 1,
+      `slotNumber must be between 0 and ${config.game.totalTicketsPerDay - 1}`
+    )
     .optional(),
 });
 

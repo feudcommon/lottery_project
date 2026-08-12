@@ -101,6 +101,13 @@ const forceDraw = asyncHandler(async (req, res) => {
   res.json({ message: "Draw executed", result });
 });
 
+// POST /api/admin/draw/:date/payout -- send that draw's winner their prize on-chain now
+const payoutDrawWinner = asyncHandler(async (req, res) => {
+  const { date } = req.params;
+  const result = await withdrawalService.payoutDrawWinner(date);
+  res.json({ message: "Winner paid out on-chain", result });
+});
+
 // GET /api/admin/draw/:date/verify -- fairness check, also public-facing (see routes)
 const verifyDraw = asyncHandler(async (req, res) => {
   const { date } = req.params;
@@ -118,6 +125,12 @@ const forceJackpotDraw = asyncHandler(async (req, res) => {
   res.json({ message: "Jackpot draw executed", result });
 });
 
+// POST /api/admin/jackpot/:weekStart/payout -- send that jackpot's winner their prize on-chain now
+const payoutJackpotWinner = asyncHandler(async (req, res) => {
+  const result = await withdrawalService.payoutJackpotWinner(req.params.weekStart);
+  res.json({ message: "Jackpot winner paid out on-chain", result });
+});
+
 
 module.exports = {
   listUsers,
@@ -128,7 +141,9 @@ module.exports = {
   approveWithdrawal,
   rejectWithdrawal,
   forceDraw,
+  payoutDrawWinner,
   verifyDraw,
   closeJackpot,
   forceJackpotDraw,
+  payoutJackpotWinner,
 };

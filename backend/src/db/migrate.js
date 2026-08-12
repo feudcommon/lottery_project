@@ -104,10 +104,25 @@ async function migrateIsAdminColumn(db) {
   console.log("✅ users.is_admin added");
 }
 
+// Migration 4: tracks whether a draw's / jackpot's winner has already been
+// paid out on-chain by an admin, so "Send winnings" can't be double-clicked
+// into sending tokens twice for the same win.
+async function migrateWinnerPaidOutColumns(db) {
+  if (!(await hasColumn(db, "draws", "winner_paid_out"))) {
+    console.log("Migrating draws table: adding winner_paid_out column…");
+    await db.exec(`ALTER TABLE draws ADD COLUMN winner_paid_out INTEGER NOT NULL DEFAULT 0;`);
+  }
+  if (!(await hasColumn(db, "jackpots", "winner_paid_out"))) {
+    console.log("Migrating jackpots table: adding winner_paid_out column…");
+    await db.exec(`ALTER TABLE jackpots ADD COLUMN winner_paid_out INTEGER NOT NULL DEFAULT 0;`);
+  }
+}
+
 async function runMigrations(db) {
   await migrateTelegramIdOptional(db);
   await migrateWalletAddressUniqueIndex(db);
   await migrateIsAdminColumn(db);
+  await migrateWinnerPaidOutColumns(db);
 }
 
 module.exports = { runMigrations };

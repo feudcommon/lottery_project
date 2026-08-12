@@ -392,10 +392,14 @@ All routes below require `requireAuth` **and** `requireAdmin`. `requireAdmin` pa
 | POST | `/api/admin/withdrawals/:id/approve` | Trigger on-chain send for a pending withdrawal |
 | POST | `/api/admin/withdrawals/:id/reject` | Reject + refund coins to the user |
 | POST | `/api/admin/draw/:date/run` | Force-run a draw outside the normal cron schedule |
+| POST | `/api/admin/draw/:date/payout` | Send that draw's winner their prize on-chain immediately, without waiting for them to request a withdrawal |
 | POST | `/api/admin/jackpot/:weekStart/close` | Manually close a jackpot week |
 | POST | `/api/admin/jackpot/:weekStart/draw` | Manually force a jackpot draw |
+| POST | `/api/admin/jackpot/:weekStart/payout` | Send that jackpot's winner their prize on-chain immediately |
 
 `POST /api/admin/draw/:date/run` body: none required.
+`POST /api/admin/draw/:date/payout` body: none required. Requires the draw to be `drawn` with a winner, the winner to have a linked wallet address, and not already paid out (tracked via the `winner_paid_out` column — a second call for the same draw returns `409`).
+`POST /api/admin/jackpot/:weekStart/payout` body: none required. Same guards as the draw payout, applied to the jackpot instead.
 `POST /api/admin/withdrawals/:id/reject` body: `{ "reason": "string, optional" }`.
 `POST /api/admin/users/:id/promote` / `/demote` body: none required.
 

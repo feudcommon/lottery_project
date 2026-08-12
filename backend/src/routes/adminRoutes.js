@@ -18,7 +18,9 @@ router.get("/withdrawals/pending", adminController.getPendingWithdrawals);
 router.post("/withdrawals/:id/approve", adminController.approveWithdrawal);
 router.post("/withdrawals/:id/reject", adminController.rejectWithdrawal);
 router.post("/draw/:date/run", adminController.forceDraw);
+router.post("/draw/:date/payout", adminController.payoutDrawWinner);
 router.post("/jackpot/:weekStart/close", adminController.closeJackpot);
 router.post("/jackpot/:weekStart/draw", adminController.forceJackpotDraw);
+router.post("/jackpot/:weekStart/payout", adminController.payoutJackpotWinner);
 
 module.exports = router;

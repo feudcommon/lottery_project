@@ -13,7 +13,7 @@ flowchart LR
   F -->|JWT bearer requests| A
   F -->|AppKit| M[User wallet]
   M -->|SCAI Mainnet / 34| R[SCAI RPC]
-  A --> Q[(SQLite)]
+  A --> Q[(Turso / libSQL)]
   A -->|ethers.js| R
   A -->|Checkout + webhook| ST[Stripe]
   R --> L[LLT contract]
@@ -71,10 +71,10 @@ HTTP request
   -> auth / validation / route rate limiter where needed
   -> controller
   -> service
-  -> SQLite or SCAI RPC or Stripe
+  -> Turso or SCAI RPC or Stripe
 ```
 
-Services own business rules such as ticket limits, coin balances, referrals, withdrawals, deposits, draw scheduling, jackpot accrual, and commit-reveal verification. SQLite is the system of record for users, tickets, draws, transactions, deposits, and withdrawal history, accessed via Node's built-in `node:sqlite` module (no native build step, which avoids the Windows toolchain issues that a compiled driver like `better-sqlite3` would otherwise introduce).
+Services own business rules such as ticket limits, coin balances, referrals, withdrawals, deposits, draw scheduling, jackpot accrual, and commit-reveal verification. Turso (libSQL, accessed via `@libsql/client`) is the system of record for users, tickets, draws, transactions, deposits, and withdrawal history. Unlike the earlier local-file `node:sqlite` setup, the database lives outside the app container, so it survives redeploys and free-tier host restarts instead of resetting.
 
 The API runs scheduled jobs (`backend/src/jobs/lotteryCron.js`) for ticket-sale closing, seed commitment, drawing, and housekeeping. A completed draw can be verified through the public draw verification endpoint.
 
@@ -123,7 +123,7 @@ The connected wallet is used to select the recipient address. The backend's conf
 
 - their `telegram_id` is in the `ADMIN_TELEGRAM_IDS` env var
 - their `wallet_address` is in the `ADMIN_WALLET_ADDRESSES` env var (compared lowercase)
-- their `is_admin` column in SQLite is set
+- their `is_admin` column in the database is set
 
 The two env vars exist to bootstrap the very first admin(s) without a database write. After that, an existing admin can promote or demote other users to/from admin directly from the `/admin` panel (`POST /api/admin/users/:id/promote` / `/demote`), which only flips the DB column — no redeploy required for subsequent grants. Demoting a DB-flagged admin does **not** remove access if that same account is also listed in one of the env vars; the env var allowlist would need to be edited too in that case.
 
@@ -132,7 +132,7 @@ The two env vars exist to bootstrap the very first admin(s) without a database w
 ## Deployment configuration
 
 - **Vercel:** runs `cd frontend && npm install && npm run build`, publishes `frontend/dist`, and provides SPA rewrites and Telegram embedding headers.
-- **Render:** runs the backend as a web service; environment variables (secrets, DB path, Stripe/RPC keys, admin allowlists) are configured in the Render dashboard.
+- **Render:** runs the backend as a web service; environment variables (secrets, Turso database URL/token, Stripe/RPC keys, admin allowlists) are configured in the Render dashboard.
 - **SCAI Mainnet:** chain ID `34`, native SCAI currency, RPC `https://mainnet-rpc.scai.network`.
 
 Frontend settings are build-time values. In Vercel they must use `VITE_` names; legacy `REACT_APP_*` keys are ignored by Vite.
@@ -142,5 +142,5 @@ Frontend settings are build-time values. In Vercel they must use `VITE_` names; 
 - Never expose `BACKEND_PRIVATE_KEY`, bot tokens, JWT secrets, Stripe secret keys, or admin allowlists in frontend variables.
 - `VITE_*` values are public in the browser bundle; do not put secrets in them.
 - CORS is currently a single allowed origin via `FRONTEND_URL`, not a multi-origin allowlist — fine for one deployed frontend, but revisit if a second frontend origin (e.g. a staging preview domain) needs API access.
-- Current rate-limit counters and SQLite storage are local to a backend instance. Plan a shared limiter/database before scaling to multiple API instances.
+- Current rate-limit counters are local to a backend instance (in-memory). Plan a shared limiter (e.g. Redis) before scaling to multiple API instances — the database itself (Turso) is already shared/remote and does not have this limitation.
 - Ticket purchase remains off-chain and coin-based. Adding native-SCAI ticket payments requires an explicit payment/contract design and should not be inferred from wallet connection or the existing SCAI-deposit path alone.

@@ -6,7 +6,7 @@ SCAI Lucky Loop is a daily, coin-based lottery available as a website and Telegr
 
 ## Technology and architecture
 
-The client is React, TypeScript, Vite and React Router. The API is Express with SQLite (via Node's built-in `node:sqlite`), JWT authentication, rate limiting and scheduled jobs. The token contract is Solidity/Hardhat; wallet connection uses Reown AppKit and ethers. See [architecture.md](./architecture.md) and the diagrams in [Assets](./Assets) for runtime paths, security boundaries and database relationships.
+The client is React, TypeScript, Vite and React Router. The API is Express with a remote Turso (libSQL) database, JWT authentication, rate limiting and scheduled jobs. The token contract is Solidity/Hardhat; wallet connection uses Reown AppKit and ethers. See [architecture.md](./architecture.md) and the diagrams in [Assets](./Assets) for runtime paths, security boundaries and database relationships.
 
 ## Player flow
 
@@ -28,11 +28,11 @@ Coins are in-app units used for tickets. The free daily spin and referral reward
 
 ## Administration
 
-The protected `/admin` screen is backed by admin endpoints under `/api/admin/*`, gated by `requireAuth` plus `requireAdmin`. Admin status comes from any of three sources: a Telegram ID in `ADMIN_TELEGRAM_IDS`, a wallet address in `ADMIN_WALLET_ADDRESSES`, or the `is_admin` column in SQLite. The first two are bootstrap-only (env vars, need a redeploy to change); the third can be granted or revoked by an existing admin directly in the panel, with no redeploy. The panel supports user review and admin promotion/demotion, ticket-sales inspection, pending withdrawal approval/rejection, manual draw execution, and jackpot close/draw actions. Endpoint details, request bodies and response examples are in [Api.md](./Api.md).
+The protected `/admin` screen is backed by admin endpoints under `/api/admin/*`, gated by `requireAuth` plus `requireAdmin`. Admin status comes from any of three sources: a Telegram ID in `ADMIN_TELEGRAM_IDS`, a wallet address in `ADMIN_WALLET_ADDRESSES`, or the `is_admin` column in the database. The first two are bootstrap-only (env vars, need a redeploy to change); the third can be granted or revoked by an existing admin directly in the panel, with no redeploy. The panel supports user review and admin promotion/demotion, ticket-sales inspection, pending withdrawal approval/rejection, manual draw execution, and jackpot close/draw actions. Endpoint details, request bodies and response examples are in [Api.md](./Api.md).
 
 ## API and database
 
-`Api.md` is the canonical REST API reference. SQLite tables are created in `backend/src/db/init.js`; the ERD is [Assets/db_erd.drawio.png](./Assets/db_erd.drawio.png). Core tables include users (nullable `telegram_id`, since wallet-only accounts exist), tickets, draws, coin transactions, withdrawals, deposits, and jackpot records.
+`Api.md` is the canonical REST API reference. Turso/libSQL tables are created in `backend/src/db/init.js`; the ERD is [Assets/db_erd.drawio.png](./Assets/db_erd.drawio.png). Core tables include users (nullable `telegram_id`, since wallet-only accounts exist), tickets, draws, coin transactions, withdrawals, deposits, and jackpot records.
 
 ## Deployment and verification
 

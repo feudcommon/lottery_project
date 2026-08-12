@@ -46,10 +46,15 @@ export default function Tickets() {
     
     try {
       console.log("Buying ticket for slot:", slotNumber);
-      
-      // âœ… Send slotNumber to backend
+
+      // Send slotNumber to backend. Deliberately NOT sending drawDate here —
+      // computing "today" on the client (e.g. new Date().toISOString()) is
+      // always UTC, which disagrees with the backend's CRON_TIMEZONE
+      // (Asia/Kolkata) for part of every day. Omitting it lets the backend
+      // compute "today" itself, the same timezone-aware way it decides when
+      // sales close and draws run — so a purchase always lands on the draw
+      // the player actually sees on screen.
       const result = await api.post('/api/buy-ticket', {
-        drawDate: new Date().toISOString().split('T')[0],
         slotNumber: slotNumber
       });
       

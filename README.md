@@ -7,7 +7,7 @@ The repository contains three deployable parts:
 | Directory | Responsibility | Deployment |
 | --- | --- | --- |
 | `frontend/` | Vite + React client, Telegram + wallet login, wallet connection | Vercel |
-| `backend/` | Express API, SQLite data store, jobs, withdrawals, payments | Render |
+| `backend/` | Express API, Turso (libSQL) data store, jobs, withdrawals, payments | Render |
 | `contracts/` | LLT ERC-20 Solidity contract and Hardhat tests | SCAI Mainnet |
 
 ## Current architecture
@@ -21,7 +21,7 @@ flowchart TD
   F -->|Bearer JWT| B
   F -->|AppKit + Ethers adapter| W[Compatible wallet]
   W -->|SCAI Mainnet: chain ID 34| S[SCAI RPC]
-  B --> D[(SQLite)]
+  B --> D[(Turso / libSQL)]
   B -->|Mint / transfer LLT| S
   B -->|Stripe Checkout + webhook| P[Stripe]
   S --> C[LLT ERC-20 contract]
@@ -138,7 +138,7 @@ Vite substitutes these values during the build. Changing a Vercel variable requi
 
 ### Backend on Render
 
-The backend is deployed as a Render web service running `backend/`. Configure all backend environment variables (secrets, DB path, admin allowlists, Stripe/RPC keys) directly in the Render dashboard before deploying. Render assigns the service its own public URL — that's what `VITE_API_URL` above should point to.
+The backend is deployed as a Render web service running `backend/`. Configure all backend environment variables (secrets, Turso database URL/token, admin allowlists, Stripe/RPC keys) directly in the Render dashboard before deploying. Render assigns the service its own public URL — that's what `VITE_API_URL` above should point to.
 
 ## Development commands
 
@@ -149,7 +149,7 @@ The backend is deployed as a Render web service running `backend/`. Configure al
 | `frontend/` | `npm run preview` | Serve the production build locally |
 | `backend/` | `npm run dev` | Start Express with nodemon |
 | `backend/` | `npm start` | Start Express normally |
-| `backend/` | `npm run init-db` | Initialize SQLite data |
+| `backend/` | `npm run init-db` | Initialize database schema on Turso |
 
 ## Documentation
 
@@ -164,5 +164,5 @@ The backend is deployed as a Render web service running `backend/`. Configure al
 
 A few loose ends worth cleaning up rather than treating as documentation gaps:
 
-- There's a stray, incomplete `Contact.tsx` at the repository root (outside `frontend/src/pages/`). It's not imported anywhere — the real, routed page is `frontend/src/pages/Contact.tsx`. The root copy looks like a bad paste and is safe to delete.
+- ~~There's a stray, incomplete `Contact.tsx` at the repository root~~ — removed. The real, routed page remains at `frontend/src/pages/Contact.tsx`, untouched.
 - `frontend/src/pages/Landing.tsx` and `frontend/src/pages/Rules.tsx` exist but aren't referenced by any route in `App.tsx`. `GameRules.tsx` is the page actually mounted at `/rules`. Either wire these in or remove them.

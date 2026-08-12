@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS draws (
   random_seed TEXT,                -- stored BEFORE the draw runs (commit step)
   server_seed_hash TEXT,            -- sha256(seed) published early, proves no tampering
   reward_amount INTEGER,
+  winner_paid_out INTEGER NOT NULL DEFAULT 0,
   closed_at TEXT,
   drawn_at TEXT,
   FOREIGN KEY (winner_user_id) REFERENCES users(id),
@@ -105,6 +106,7 @@ CREATE TABLE IF NOT EXISTS jackpots (
   week_end TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open',  -- open | closed | drawn
   pool_amount INTEGER NOT NULL DEFAULT 0,
+  winner_paid_out INTEGER NOT NULL DEFAULT 0,
   winner_user_id INTEGER,
   random_seed TEXT,
   server_seed_hash TEXT,
