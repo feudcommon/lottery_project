@@ -70,31 +70,65 @@ class RpcNotReadyError extends AppError {
   }
 }
 
-async function assertRpcIsCaughtUp() {
+// RPC_URL and LLT_CONTRACT_ADDRESS are fixed/known-good (verified against
+// the deployment and a block explorer showing months of live activity at
+// this address), so a single empty-bytecode response is almost certainly
+// NOT the contract being missing — it's most likely mainnet-rpc.scai.network
+// being a load-balanced endpoint that occasionally routes a request to a
+// lagging/inconsistent node behind it. A single bad response used to fail
+// the whole withdrawal immediately; now we retry a few times first, since
+// a follow-up request very likely lands on a healthy node.
+async function assertRpcIsCaughtUp(maxAttempts = 3) {
   if (!provider || !LLT_CONTRACT_ADDRESS) return;
 
-  let code;
-  try {
-    code = await provider.getCode(LLT_CONTRACT_ADDRESS);
-  } catch (error) {
-    // Network/connection-level failure talking to the RPC at all.
-    throw new RpcNotReadyError(
-      "Blockchain network is temporarily unreachable — withdrawals are paused, please try again later.",
+  let lastCode = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let code;
+    try {
+      code = await provider.getCode(LLT_CONTRACT_ADDRESS);
+    } catch (error) {
+      // Network/connection-level failure talking to the RPC at all — also
+      // worth a retry, for the same reason as above.
+      console.error(
+        `[Blockchain] getCode attempt ${attempt}/${maxAttempts} failed to reach RPC: ${error.message}`,
+      );
+      if (attempt === maxAttempts) {
+        throw new RpcNotReadyError(
+          "Blockchain network is temporarily unreachable — withdrawals are paused, please try again later.",
+        );
+      }
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+      continue;
+    }
+
+    if (code && code !== "0x") {
+      // Got real bytecode — RPC node behind this request is caught up.
+      return;
+    }
+
+    lastCode = code;
+    console.error(
+      `[Blockchain] getCode attempt ${attempt}/${maxAttempts}: RPC at ${RPC_URL} returned empty ` +
+        `bytecode for ${LLT_CONTRACT_ADDRESS}.`,
     );
+    if (attempt < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
   }
 
-  if (!code || code === "0x") {
-    // Either the RPC node hasn't synced far enough to see our contract yet,
-    // or (much less likely, since this address is fixed/known-good) the
-    // contract genuinely isn't deployed at this address on this network.
-    console.error(
-      `[Blockchain] RPC at ${RPC_URL} returned empty bytecode for ${LLT_CONTRACT_ADDRESS}. ` +
-        "The node is likely still syncing and hasn't reached the contract's deployment block.",
-    );
-    throw new RpcNotReadyError(
-      "Blockchain network is temporarily syncing — withdrawals are paused, please try again later.",
-    );
-  }
+  // Every attempt came back empty. Since the contract address is fixed and
+  // known-deployed, this means every node we happened to hit behind the RPC
+  // endpoint currently has a stale/incomplete view — genuinely worth
+  // surfacing as "try again later" rather than a silent retry loop forever.
+  console.error(
+    `[Blockchain] All ${maxAttempts} attempts returned empty bytecode (last: ${lastCode}) for ` +
+      `${LLT_CONTRACT_ADDRESS} via ${RPC_URL}. If this persists, the RPC endpoint itself likely ` +
+      "has an unhealthy/unsynced node behind its load balancer — worth checking with the RPC provider.",
+  );
+  throw new RpcNotReadyError(
+    "Blockchain network is temporarily syncing — withdrawals are paused, please try again later.",
+  );
 }
 
 async function sendWithRetry(txPromiseFactory, maxAttempts = 3) {
